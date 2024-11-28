@@ -13,10 +13,12 @@
 #include <fstream>
 #include <cstdlib> 
 #include <functional>
-#include <filesystem>
+//#include <filesystem>
 #include <tuple>
 #include <exception>
 
-#include "URT.hpp"
+#include "Config.hpp"
+#include "FileReader.hpp"
+#include "EpitrendBinaryFormat.hpp"
 
 #endif // COMMON_HPP

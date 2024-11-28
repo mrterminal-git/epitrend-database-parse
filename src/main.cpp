@@ -4,5 +4,8 @@
 
 int main() {
 
+// Testing reading epitrend binary format files
+FileReader::testFunction();
+
 return 0;
 }
