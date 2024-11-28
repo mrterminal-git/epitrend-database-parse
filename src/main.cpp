@@ -5,7 +5,7 @@
 int main() {
 
 // Testing reading epitrend binary format files
-FileReader::testFunction();
+FileReader::parseEpitrendFile(2024,11,1,1,false);
 
 return 0;
 }

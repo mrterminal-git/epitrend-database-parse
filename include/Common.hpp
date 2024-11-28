@@ -2,6 +2,7 @@
 #define COMMON_HPP
 
 #include <iostream>
+#include <iomanip>
 #include <string>
 #include <stdexcept>
 #include <unordered_map>
@@ -16,6 +17,7 @@
 //#include <filesystem>
 #include <tuple>
 #include <exception>
+#include <locale>
 
 #include "Config.hpp"
 #include "FileReader.hpp"
