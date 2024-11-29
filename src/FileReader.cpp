@@ -9,7 +9,8 @@ std::string FileReader::trimInternal(const std::string& str) {
     return trimmed;
 }
 
-EpitrendBinaryFormat FileReader::parseEpitrendFile(
+// Parse the Epitrend binary format file
+EpitrendBinaryFormat FileReader::parseEpitrendBinaryFormatFile(
     int year, 
     int month, 
     int day, 
@@ -48,6 +49,8 @@ EpitrendBinaryFormat FileReader::parseEpitrendFile(
     EpitrendBinaryFormat binaryFormat;
     std::string line;
     int lineNumber = 0;
+
+    //
 
     // Process each line
     while (std::getline(file, line)) {
@@ -147,4 +150,69 @@ EpitrendBinaryFormat FileReader::parseEpitrendFile(
     }
 
     return binaryFormat;
+}
+
+// Parse the Epitrend binary data file
+void FileReader::parseEpitrendBinaryDataFile(
+    EpitrendBinaryData& binary_data,
+    int year,
+    int month,
+    int day,
+    int hour,
+    bool verbose
+) {
+    // Array for month names
+    const std::string MONTH_NAMES[] = {
+        "Jan", "Feb", "Mar", "Apr", "May", "Jun", 
+        "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"
+    };
+
+    // Parse the Epitrend binary format object
+    EpitrendBinaryFormat binary_format = 
+        FileReader::parseEpitrendBinaryFormatFile(year, month, day, hour, verbose);
+
+    // Construct the file path dynamically
+    std::ostringstream oss;
+    oss << Config::getDataDir()
+        << std::setfill('0') << year << "/"
+        << std::setw(2) << month << "-" << MONTH_NAMES[month - 1] << "/"
+        << std::setw(2) << day << "day-" << std::setw(2) << hour << "hr-binary.txt";
+    std::string fullpath = oss.str();
+
+    if (verbose) {
+        std::cout << "Opening file: " << fullpath << "\n";
+    }
+
+    // Open the file
+    std::ifstream file(fullpath);
+    if (!file.is_open()) {
+        throw std::runtime_error("Error parseEpitrendBinaryDataFile function call: Could not open file: " + fullpath);
+    }
+
+    // Load binary data into a buffer
+    std::vector<double> binary_buffer;
+    float value;
+
+    // Read the binary data
+    while (file.read(reinterpret_cast<char*>(&value), sizeof(value))) {
+        binary_buffer.push_back(value);
+    }
+
+    // Loop through all the data item names
+    for(const std::string& data_item_name : binary_format.getAllDataItemNames()) {
+        // For each name, get the time data and
+        // Index the binary file from the offset to the total number of items in each data items            
+        EpitrendBinaryFormat::DataItem current_data_item = binary_format.getDataItem(data_item_name);
+        int start_index = current_data_item.ValueOffset;
+        int end_index = current_data_item.TotalValues + start_index;
+        
+        // Looping through the time,value pairs for current date item name
+        for(int i = (start_index+1) * 2; i < (end_index+1) * 2; i+=2) { 
+            double current_time = static_cast<double>(binary_format.getCurrentDay()) + binary_buffer.at(i);
+            binary_data.addDataItem(data_item_name, {current_time, (double) binary_buffer.at(i+1)}, verbose);
+
+        }
+
+    }
+
 }

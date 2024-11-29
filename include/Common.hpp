@@ -20,7 +20,5 @@
 #include <locale>
 
 #include "Config.hpp"
-#include "FileReader.hpp"
-#include "EpitrendBinaryFormat.hpp"
 
 #endif // COMMON_HPP

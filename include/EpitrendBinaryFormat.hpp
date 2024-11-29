@@ -1,11 +1,7 @@
 #ifndef EPITRENDBINARYFORMAT_HPP
 #define EPITRENDBINARYFORMAT_HPP
 
-#include <unordered_map>
-#include <string>
-#include <vector>
-#include <iostream>
-#include <stdexcept>
+#include "Common.hpp"
 
 class EpitrendBinaryFormat {
 public:
