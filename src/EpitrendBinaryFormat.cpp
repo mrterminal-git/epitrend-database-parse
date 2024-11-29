@@ -64,7 +64,7 @@ void EpitrendBinaryFormat::printSummary() const {
     std::cout << "Total Data Items: " << totalDataItems << std::endl;
     std::cout << "Time Resolution: " << timeResolution << " seconds" << std::endl;
     std::cout << "Data Items:" << std::endl;
-    for (const auto& [name, dataItem] : dataItems) {
-        std::cout << "  - " << dataItem << std::endl;
+    for (const auto& dataItem : dataItems) {
+        std::cout << "  - " << dataItem.second << std::endl;
     }
 }
