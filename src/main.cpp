@@ -16,14 +16,31 @@ std::string connectionString =
     "Encrypt=yes;"
     "TrustServerCertificate=no;"
     "Connection Timeout=30;";
+
 std::string query_table_name = "SELECT TABLE_NAME FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_TYPE = 'BASE TABLE';";
-std::string query_create_table = "CREATE TABLE my_first_table (column_1 INT, column_2 DEC(10,0), column_3 INT)";
+std::string query_create_table = 
+    "CREATE TABLE epitrend_data_1 ( "
+    "id BIGINT NOT NULL IDENTITY(1,1), "
+    "name VARCHAR(50), "
+    "date_time DATETIME2, "
+    "value FLOAT, "
+    "PRIMARY KEY (id) );";
 std::string query_table_contents = "SELECT COLUMN_NAME, DATA_TYPE, CHARACTER_MAXIMUM_LENGTH "
                                    "FROM INFORMATION_SCHEMA.COLUMNS "
-                                   "WHERE TABLE_NAME = 'my_first_table';";
+                                   "WHERE TABLE_NAME = 'epitrend_data_1';";
 
-if (AzureDatabase::queryDatabase(connectionString, query_table_contents)) {
-    std::cout << "Query executed successfully." << std::endl;
+AzureDatabase db;
+
+// Establish connection
+if (!db.connect(connectionString)) {
+    std::cerr << "Failed to connect to database." << std::endl;
+    return 1;
+}
+
+// Execute a query
+std::string query = "SELECT TABLE_NAME FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_TYPE = 'BASE TABLE';";
+if (db.queryExecute(query_table_contents)) {
+    std::cout << "Query executed successfully!" << std::endl;
 } else {
     std::cerr << "Query execution failed." << std::endl;
 }
@@ -41,7 +58,7 @@ if (AzureDatabase::queryDatabase(connectionString, query_table_contents)) {
 // binaryData.printAllTimeSeriesData();
 
 EpitrendBinaryData binary_data;
-for (int i = 0; i < 24; i++) {
+for (int i = 0; i < 4; i++) {
     FileReader::parseEpitrendBinaryDataFile(binary_data,2024,11,1,i,false);
     std::cout << "Current size of EpitrendBinaryData object: " << binary_data.getByteSize() << "\n";
 }
