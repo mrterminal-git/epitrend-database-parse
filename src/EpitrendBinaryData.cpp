@@ -65,3 +65,8 @@ void EpitrendBinaryData::printFileAllTimeSeriesData(const std::string& filename)
 
     }
 }
+
+//
+void EpitrendBinaryData::clear(){
+    allTimeSeriesData.clear();
+}

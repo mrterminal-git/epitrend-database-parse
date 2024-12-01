@@ -23,6 +23,9 @@ public:
     void printAllTimeSeriesData();
     void printFileAllTimeSeriesData(const std::string& filename);
 
+    // Clear all contents of time-series data
+    void clear();
+
 private:
     std::unordered_map<std::string, std::unordered_map<double,double>> allTimeSeriesData;
     int byteSize = 0;
