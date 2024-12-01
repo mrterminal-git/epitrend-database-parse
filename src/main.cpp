@@ -3,8 +3,30 @@
 #include "Config.hpp"
 #include "EpitrendBinaryFormat.hpp"
 #include "EpitrendBinaryData.hpp"
+#include "AzureDatabase.hpp"
 
 int main() {
+
+std::string connectionString = 
+    "Driver=ODBC Driver 18 for SQL Server;"
+    "Server=tcp:epitrenddbts.database.windows.net,1433;"
+    "Database=EpitrendDBTS;"
+    "Uid=mrterminal;"
+    "Pwd=$Newmonogatar1;"
+    "Encrypt=yes;"
+    "TrustServerCertificate=no;"
+    "Connection Timeout=30;";
+std::string query_table_name = "SELECT TABLE_NAME FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_TYPE = 'BASE TABLE';";
+std::string query_create_table = "CREATE TABLE my_first_table (column_1 INT, column_2 DEC(10,0), column_3 INT)";
+std::string query_table_contents = "SELECT COLUMN_NAME, DATA_TYPE, CHARACTER_MAXIMUM_LENGTH "
+                                   "FROM INFORMATION_SCHEMA.COLUMNS "
+                                   "WHERE TABLE_NAME = 'my_first_table';";
+
+if (AzureDatabase::queryDatabase(connectionString, query_table_contents)) {
+    std::cout << "Query executed successfully." << std::endl;
+} else {
+    std::cerr << "Query execution failed." << std::endl;
+}
 
 // Testing parsing the binary file using the binary format file
 // EpitrendBinaryData object
@@ -28,3 +50,5 @@ binary_data.printFileAllTimeSeriesData("temp.txt");
 
 return 0;
 }
+
+
