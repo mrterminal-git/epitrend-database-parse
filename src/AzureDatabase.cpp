@@ -102,6 +102,92 @@ bool AzureDatabase::queryExecute(const std::string& query, bool display) {
     return true;
 }
 
+// Helper function
+std::string AzureDatabase::convertDoubleToDateTime(double excelDays) {
+    // Excel epoch (1899-12-30) to Unix epoch (1970-01-01) offset in days
+    constexpr double excelEpochOffset = 25569.0;
+
+    // Convert Excel days to milliseconds since Unix epoch
+    auto millis = std::chrono::milliseconds(static_cast<int64_t>((excelDays - excelEpochOffset) * 86400000));
+
+    // Convert to time_point
+    auto timePoint = std::chrono::system_clock::time_point(millis);
+
+    // Convert to time_t for date and time
+    std::time_t rawTime = std::chrono::system_clock::to_time_t(timePoint);
+
+    // Get the fractional milliseconds
+    auto ms = std::chrono::duration_cast<std::chrono::milliseconds>(millis).count() % 1000;
+
+    // Format the datetime string with milliseconds
+    std::tm* tmTime = std::gmtime(&rawTime);
+    std::ostringstream oss;
+    oss << std::put_time(tmTime, "%Y-%m-%d %H:%M:%S.") << std::setfill('0') << std::setw(3) << ms;
+
+    return oss.str();
+}
+
+// copy from EpitrendBinaryData into SQL table
+bool AzureDatabase::copyToSQL(const std::string& tableName, EpitrendBinaryData data) {
+    if (!isConnected) {
+        std::cerr << "No active database connection. Please connect first." << std::endl;
+        return false;
+    }
+
+    auto allData = data.getAllTimeSeriesData();
+
+    for (const auto& [name, timeSeries] : allData) {
+        for (const auto& [time, value] : timeSeries) {
+            // Convert double time to DATETIME2 format
+            std::time_t rawTime = static_cast<std::time_t>((time - 25569.0) * 86400); // Excel Epoch = 1899-12-30
+            std::tm* tmTime = std::gmtime(&rawTime);
+
+            std::ostringstream oss;
+            oss << std::put_time(tmTime, "%Y-%m-%d %H:%M:%S");
+
+            std::string dateTime = convertDoubleToDateTime(time);
+
+            // Construct query with deduplication rule
+            std::string query = 
+                "IF NOT EXISTS ("
+                "SELECT 1 FROM " + tableName +
+                " WHERE name = ? AND date_time = ?"
+                ") INSERT INTO " + tableName + " (name, date_time, value) VALUES (?, ?, ?)";
+
+            SQLHSTMT stmt;
+            SQLRETURN ret = SQLAllocHandle(SQL_HANDLE_STMT, dbc, &stmt);
+            if (ret != SQL_SUCCESS && ret != SQL_SUCCESS_WITH_INFO) {
+                std::cerr << "Failed to allocate statement handle." << std::endl;
+                printSQLError(dbc, SQL_HANDLE_DBC);
+                return false;
+            }
+
+            // Bind parameters
+            std::cout << "Inserting name: " << name << ", time: " << dateTime << ", value: " << value << " into " << tableName << "\n";
+            SQLBindParameter(stmt, 1, SQL_PARAM_INPUT, SQL_C_CHAR, SQL_VARCHAR, name.size(), 0, (SQLPOINTER)name.c_str(), name.size(), NULL);
+            SQLBindParameter(stmt, 2, SQL_PARAM_INPUT, SQL_C_CHAR, SQL_VARCHAR, dateTime.size(), 0, (SQLPOINTER)dateTime.c_str(), dateTime.size(), NULL);
+            SQLBindParameter(stmt, 3, SQL_PARAM_INPUT, SQL_C_CHAR, SQL_VARCHAR, name.size(), 0, (SQLPOINTER)name.c_str(), name.size(), NULL);
+            SQLBindParameter(stmt, 4, SQL_PARAM_INPUT, SQL_C_CHAR, SQL_VARCHAR, dateTime.size(), 0, (SQLPOINTER)dateTime.c_str(), dateTime.size(), NULL);
+            SQLBindParameter(stmt, 5, SQL_PARAM_INPUT, SQL_C_FLOAT, SQL_FLOAT, 0, 0, (SQLPOINTER)&value, sizeof(float), NULL);
+
+            // Execute query
+            ret = SQLExecDirect(stmt, (SQLCHAR*)query.c_str(), SQL_NTS);
+            if (ret != SQL_SUCCESS && ret != SQL_SUCCESS_WITH_INFO) {
+                std::cerr << "Failed to execute query for name: " << name << ", time: " << dateTime << ", value: " << value << std::endl;
+                printSQLError(stmt, SQL_HANDLE_STMT);
+                SQLFreeHandle(SQL_HANDLE_STMT, stmt);
+                return false;
+            }
+
+            // Free statement handle
+            SQLFreeHandle(SQL_HANDLE_STMT, stmt);
+        }
+    }
+
+    return true;
+}
+
+// Connect, query and execute static function
 bool AzureDatabase::queryDatabase(const std::string& connectionString, const std::string& query, bool display) {
     SQLHENV env;
     SQLHDBC dbc;

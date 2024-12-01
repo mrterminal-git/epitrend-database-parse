@@ -19,43 +19,34 @@ std::string connectionString =
 
 std::string query_table_name = "SELECT TABLE_NAME FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_TYPE = 'BASE TABLE';";
 std::string query_create_table = 
-    "CREATE TABLE epitrend_data_1 ( "
+    "CREATE TABLE epitrend_data_3 ( "
     "id BIGINT NOT NULL IDENTITY(1,1), "
-    "name VARCHAR(50), "
+    "name VARCHAR(255), "
     "date_time DATETIME2, "
     "value FLOAT, "
     "PRIMARY KEY (id) );";
 std::string query_table_contents = "SELECT COLUMN_NAME, DATA_TYPE, CHARACTER_MAXIMUM_LENGTH "
                                    "FROM INFORMATION_SCHEMA.COLUMNS "
-                                   "WHERE TABLE_NAME = 'epitrend_data_1';";
+                                   "WHERE TABLE_NAME = 'epitrend_data_3';";
+std::string query_table_all = "SELECT * FROM epitrend_data_3";
+std::string query_table_delete_all = "DELETE FROM epitrend_data_3";
 
 AzureDatabase db;
 
 // Establish connection
 if (!db.connect(connectionString)) {
-    std::cerr << "Failed to connect to database." << std::endl;
+    std::cerr << "Failed to connect to database.\n";
     return 1;
+} else{
+    std::cout << "Connection to database established!\n";
 }
 
-// Execute a query
-std::string query = "SELECT TABLE_NAME FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_TYPE = 'BASE TABLE';";
-if (db.queryExecute(query_table_contents)) {
-    std::cout << "Query executed successfully!" << std::endl;
-} else {
-    std::cerr << "Query execution failed." << std::endl;
-}
-
-// Testing parsing the binary file using the binary format file
-// EpitrendBinaryData object
-// using the EpitrendBinaryFormat object, extract the EpitrendData object
-
-// EpitrendBinaryData binaryData;
-// binaryData.addDataItem("Parameter1", {0.1, 2});
-// binaryData.addDataItem("Parameter1", {0.2, 3});
-// binaryData.addDataItem("Parameter1", {0.1, 1});
-// binaryData.addDataItem("Parameter2", {0.1, 2});
-
-// binaryData.printAllTimeSeriesData();
+// // Execute a query
+// if (db.queryExecute(query_table_all)) {
+//     std::cout << "Query executed successfully!" << std::endl;
+// } else {
+//     std::cerr << "Query execution failed." << std::endl;
+// }
 
 EpitrendBinaryData binary_data;
 for (int i = 0; i < 4; i++) {
@@ -64,6 +55,8 @@ for (int i = 0; i < 4; i++) {
 }
 binary_data.printFileAllTimeSeriesData("temp.txt");
 
+// copy all data into SQL table
+db.copyToSQL("epitrend_data_3", binary_data);
 
 return 0;
 }

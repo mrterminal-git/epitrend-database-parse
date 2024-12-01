@@ -18,6 +18,7 @@
 #include <tuple>
 #include <exception>
 #include <locale>
+#include <sstream>
 
 #include "Config.hpp"
 
