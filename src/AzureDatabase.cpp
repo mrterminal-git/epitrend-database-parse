@@ -138,6 +138,9 @@ bool AzureDatabase::copyToSQL(const std::string& tableName, EpitrendBinaryData d
 
     for (const auto& [name, timeSeries] : allData) {
         for (const auto& [time, value] : timeSeries) {
+            // Measure time to insert in SQL DB
+            auto start = std::chrono::system_clock::now();
+            
             // Convert double time to DATETIME2 format
             std::time_t rawTime = static_cast<std::time_t>((time - 25569.0) * 86400); // Excel Epoch = 1899-12-30
             std::tm* tmTime = std::gmtime(&rawTime);
@@ -181,6 +184,10 @@ bool AzureDatabase::copyToSQL(const std::string& tableName, EpitrendBinaryData d
 
             // Free statement handle
             SQLFreeHandle(SQL_HANDLE_STMT, stmt);
+            auto end = std::chrono::system_clock::now();
+            auto elapsed =
+                std::chrono::duration_cast<std::chrono::milliseconds>(end - start);
+            std::cout << elapsed.count() << '\n';
         }
     }
 
