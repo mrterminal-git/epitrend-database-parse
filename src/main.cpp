@@ -71,14 +71,19 @@ for (int hour = 0; hour < 25; hour++) {
     
     // Check the current size of the epitrend binary data object
     std::cout << "Current size of EpitrendBinaryData object: " << binary_data.getByteSize() << "\n";
-    if (binary_data.getByteSize() > 50 * pow(10.0, 6.0) ) { // Limit INSERTS to 50 mb packs
+    if (binary_data.getByteSize() > 0.1 * pow(10.0, 6.0) ) { // Limit INSERTS to 50 mb packs
         std::cout << "Curret epitrend data object exceeded size limit -> inserting data into SQL DB and flushing object...\n";
         
         // Insert data into SQL and flush current epitrend data
         binary_data.printFileAllTimeSeriesData("temp.txt");
 
         // Copy all data into SQL table
-        db.copyToSQL("epitrend_data_time_series", binary_data);
+        auto start = std::chrono::system_clock::now();
+        db.copyToSQL2("epitrend_data_time_series", binary_data);
+        auto end = std::chrono::system_clock::now();
+        auto elapsed =
+            std::chrono::duration_cast<std::chrono::seconds>(end - start);  
+        std::cout << elapsed.count() << '\n';
 
         // Flush the current epitrend data object
         binary_data.clear();

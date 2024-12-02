@@ -6,6 +6,7 @@
 #include <string>
 #include <stdexcept>
 #include <unordered_map>
+#include <unordered_set>
 #include <cmath>
 #include <numeric>
 #include <map>

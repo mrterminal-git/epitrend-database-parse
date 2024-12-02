@@ -81,7 +81,7 @@ bool AzureDatabase::queryExecute(const std::string& query, bool display) {
                 SQLDescribeCol(stmt, i, columnName, sizeof(columnName), &nameLength, NULL, NULL, NULL, NULL);
                 std::cout << columnName << "\t";
             }
-            std::cout << std::endl;
+            std::cout << "\n";
 
             // Fetch and display data
             while (SQLFetch(stmt) == SQL_SUCCESS) {
@@ -89,7 +89,7 @@ bool AzureDatabase::queryExecute(const std::string& query, bool display) {
                     SQLGetData(stmt, i, SQL_C_CHAR, columnData, sizeof(columnData), NULL);
                     std::cout << columnData << "\t";
                 }
-                std::cout << std::endl;
+                std::cout << "\n";;
             }
         }
     } else {
@@ -187,11 +187,199 @@ bool AzureDatabase::copyToSQL(const std::string& tableName, EpitrendBinaryData d
             auto end = std::chrono::system_clock::now();
             auto elapsed =
                 std::chrono::duration_cast<std::chrono::milliseconds>(end - start);
-            std::cout << elapsed.count() << '\n';
+            std::cout << "Elapsed time: " << elapsed.count() << '\n';
         }
     }
 
     return true;
+}
+
+//  more efficient version of coptToSQL
+bool AzureDatabase::copyToSQL2(const std::string& tableName, EpitrendBinaryData data) {
+    try {
+        // Start a transaction
+        beginTransaction();
+
+        // Prepare the insert statement
+        std::string insertQuery = "INSERT INTO " + tableName + " (date_time, name, value) VALUES ";
+
+        // Batch size
+        const int batchSize = 1000;
+        int count = 0;
+
+        // Collect keys for batch uniqueness check
+        std::vector<std::pair<std::string, std::string>> keys;
+        for (const auto& [name, timeSeries] : data.getAllTimeSeriesData()) {
+            for (const auto& [time, value] : timeSeries) {
+                std::string dateTime = convertDoubleToDateTime(time);
+                keys.emplace_back(dateTime, name);
+
+            }
+        
+        }
+
+        // Get existing records in batch
+        std::cout << "Getting existing records...\n";
+        std::unordered_set<std::string> existingRecords = getExistingRecords(tableName, keys);
+        std::cout << "Finished getting existing records...\n";
+        
+        // Iterate over the data and create the insert query
+        for (const auto& [name, timeSeries] : data.getAllTimeSeriesData()) {
+            for (const auto& [time, value] : timeSeries) {
+                std::string dateTime = convertDoubleToDateTime(time);
+                std::string key = dateTime + "|" + name;
+                if (existingRecords.find(key) != existingRecords.end()) {
+                    continue;
+                }
+                
+                std::cout << "Inserting name: " << name << ", time: " << dateTime << ", value: " << value << " into " << tableName << "\n";
+                insertQuery += "('" + dateTime + "', '" + name + "', " + std::to_string(value) + "),";
+                count++;
+
+                // Execute the batch insert when the batch size is reached
+                if (count >= batchSize) {
+                    insertQuery.pop_back(); // Remove the trailing comma
+                    std::cout << "Batch limit reached - executing INSERT query for batch... " << "\n";
+                    queryExecute(insertQuery);
+                    insertQuery = "INSERT INTO " + tableName + " (date_time, name, value) VALUES ";
+                    count = 0;
+                    
+                }
+            }
+        }
+
+        // Insert any remaining data
+        if (count > 0) {
+            insertQuery.pop_back(); // Remove the trailing comma
+            queryExecute(insertQuery);
+        }
+
+        // Commit the transaction
+        commitTransaction();
+    } catch (const std::exception& e) {
+        // Rollback the transaction in case of an error
+        rollbackTransaction();
+        std::cerr << "Error during copyToSQL2: " << e.what() << std::endl;
+        return false;
+    }
+
+    return true;
+}
+
+// Helper function for copying data to SQL
+std::unordered_set<std::string> AzureDatabase::getExistingRecords(const std::string& tableName, const std::vector<std::pair<std::string, std::string>>& keys) {
+    std::unordered_set<std::string> existingRecords;
+    if (keys.empty()) {
+        return existingRecords;
+    }
+
+    const int batchSize = 100; // Adjust batch size as needed
+    for (size_t i = 0; i < keys.size(); i += batchSize) {
+        std::string query = "SELECT date_time, name FROM " + tableName + " WHERE ";
+        for (size_t j = i; j < i + batchSize && j < keys.size(); ++j) {
+            query += "(date_time = '" + keys[j].first + "' AND name = '" + keys[j].second + "') OR ";
+        }
+        std::cout << "Current batch " << i << " / " << keys.size() << "\n";
+        query = query.substr(0, query.size() - 4); // Remove the last " OR "
+
+        SQLHSTMT stmt;
+        SQLRETURN ret = SQLAllocHandle(SQL_HANDLE_STMT, dbc, &stmt);
+        if (ret != SQL_SUCCESS && ret != SQL_SUCCESS_WITH_INFO) {
+            std::cerr << "Failed to allocate statement handle." << std::endl;
+            printSQLError(dbc, SQL_HANDLE_DBC);
+            return existingRecords;
+        }
+
+        ret = SQLExecDirect(stmt, (SQLCHAR*)query.c_str(), SQL_NTS);
+        if (ret != SQL_SUCCESS && ret != SQL_SUCCESS_WITH_INFO) {
+            std::cerr << "Failed to execute query for existing records." << std::endl;
+            printSQLError(stmt, SQL_HANDLE_STMT);
+            SQLFreeHandle(SQL_HANDLE_STMT, stmt);
+            return existingRecords;
+        }
+
+        SQLCHAR dateTime[20];
+        SQLCHAR name[50];
+        while (SQLFetch(stmt) == SQL_SUCCESS) {
+            SQLGetData(stmt, 1, SQL_C_CHAR, dateTime, sizeof(dateTime), NULL);
+            SQLGetData(stmt, 2, SQL_C_CHAR, name, sizeof(name), NULL);
+            existingRecords.insert(std::string((char*)dateTime) + "|" + std::string((char*)name));
+        }
+
+        SQLFreeHandle(SQL_HANDLE_STMT, stmt);
+    }
+
+    return existingRecords;
+}
+
+// Helper function for copying data to SQL
+void AzureDatabase::beginTransaction() {
+    if (!isConnected) {
+        std::cerr << "No active database connection. Please connect first." << std::endl;
+        return;
+    }
+
+    SQLHSTMT stmt;
+    SQLRETURN ret = SQLAllocHandle(SQL_HANDLE_STMT, dbc, &stmt);
+    if (ret != SQL_SUCCESS && ret != SQL_SUCCESS_WITH_INFO) {
+        std::cerr << "Failed to allocate statement handle for transaction." << std::endl;
+        printSQLError(dbc, SQL_HANDLE_DBC);
+        return;
+    }
+
+    ret = SQLExecDirect(stmt, (SQLCHAR*)"BEGIN TRANSACTION", SQL_NTS);
+    if (ret != SQL_SUCCESS && ret != SQL_SUCCESS_WITH_INFO) {
+        std::cerr << "Failed to begin transaction." << std::endl;
+        printSQLError(stmt, SQL_HANDLE_STMT);
+    }
+
+    SQLFreeHandle(SQL_HANDLE_STMT, stmt);
+}
+
+void AzureDatabase::commitTransaction() {
+    if (!isConnected) {
+        std::cerr << "No active database connection. Please connect first." << std::endl;
+        return;
+    }
+
+    SQLHSTMT stmt;
+    SQLRETURN ret = SQLAllocHandle(SQL_HANDLE_STMT, dbc, &stmt);
+    if (ret != SQL_SUCCESS && ret != SQL_SUCCESS_WITH_INFO) {
+        std::cerr << "Failed to allocate statement handle for transaction." << std::endl;
+        printSQLError(dbc, SQL_HANDLE_DBC);
+        return;
+    }
+
+    ret = SQLExecDirect(stmt, (SQLCHAR*)"COMMIT TRANSACTION", SQL_NTS);
+    if (ret != SQL_SUCCESS && ret != SQL_SUCCESS_WITH_INFO) {
+        std::cerr << "Failed to commit transaction." << std::endl;
+        printSQLError(stmt, SQL_HANDLE_STMT);
+    }
+
+    SQLFreeHandle(SQL_HANDLE_STMT, stmt);
+}
+
+void AzureDatabase::rollbackTransaction() {
+    if (!isConnected) {
+        std::cerr << "No active database connection. Please connect first." << std::endl;
+        return;
+    }
+
+    SQLHSTMT stmt;
+    SQLRETURN ret = SQLAllocHandle(SQL_HANDLE_STMT, dbc, &stmt);
+    if (ret != SQL_SUCCESS && ret != SQL_SUCCESS_WITH_INFO) {
+        std::cerr << "Failed to allocate statement handle for transaction." << std::endl;
+        printSQLError(dbc, SQL_HANDLE_DBC);
+        return;
+    }
+
+    ret = SQLExecDirect(stmt, (SQLCHAR*)"ROLLBACK TRANSACTION", SQL_NTS);
+    if (ret != SQL_SUCCESS && ret != SQL_SUCCESS_WITH_INFO) {
+        std::cerr << "Failed to rollback transaction." << std::endl;
+        printSQLError(stmt, SQL_HANDLE_STMT);
+    }
+
+    SQLFreeHandle(SQL_HANDLE_STMT, stmt);
 }
 
 // Connect, query and execute static function
