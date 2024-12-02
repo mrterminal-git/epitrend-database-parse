@@ -19,6 +19,7 @@
 #include <exception>
 #include <locale>
 #include <sstream>
+#include <memory>
 
 #include "Config.hpp"
 
