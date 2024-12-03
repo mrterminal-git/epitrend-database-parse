@@ -1,35 +1,35 @@
 # Compiler and flags
-CC = g++
-CFLAGS = -std=c++17 -Iinclude -Ilib/Eigen -Ilib/URT/include -Ilib/Boost -Wall -Wextra -O2 -DUSE_EIGEN
-LDFLAGS = 
+CXX = g++
+CXXFLAGS = -std=c++17 -Wall -Iinclude
 
 # Directories
 SRC_DIR = src
 OBJ_DIR = obj
 BIN_DIR = bin
-LIB_DIR = lib
+INCLUDE_DIR = include
+DATA_DIR = data_small
+OUTPUT_DIR = output
 
-# Files
-SRCS = $(wildcard $(SRC_DIR)/*.cpp)
-URT_SRCS = $(wildcard $(LIB_DIR)/URT/src/*.cpp)
-OBJS = $(patsubst $(SRC_DIR)/%.cpp, $(OBJ_DIR)/%.o, $(SRCS)) \
-       $(patsubst $(LIB_DIR)/URT/src/%.cpp, $(OBJ_DIR)/URT_%.o, $(URT_SRCS))
+# Target executable
 TARGET = $(BIN_DIR)/main
+
+# Source and object files
+SRCS = $(wildcard $(SRC_DIR)/*.cpp)
+OBJS = $(patsubst $(SRC_DIR)/%.cpp,$(OBJ_DIR)/%.o,$(SRCS))
+
+# Libraries
+LIBS = -lodbc -lcurl
 
 # Default target
 all: $(TARGET)
 
-# Create target binary
+# Build target
 $(TARGET): $(OBJS) | $(BIN_DIR)
-	$(CC) $(OBJS) -o $@ $(LDFLAGS)
+	$(CXX) $(CXXFLAGS) -o $@ $^ $(LIBS)
 
-# Compile object files from your source code
+# Object files
 $(OBJ_DIR)/%.o: $(SRC_DIR)/%.cpp | $(OBJ_DIR)
-	$(CC) $(CFLAGS) -c $< -o $@
-
-# Compile object files from URT source code
-$(OBJ_DIR)/URT_%.o: $(LIB_DIR)/URT/src/%.cpp | $(OBJ_DIR)
-	$(CC) $(CFLAGS) -c $< -o $@
+	$(CXX) $(CXXFLAGS) -c $< -o $@
 
 # Create directories if they don't exist
 $(BIN_DIR):
@@ -42,8 +42,9 @@ $(OBJ_DIR):
 run: all
 	./$(TARGET)
 
-# Clean build artifacts
+# Clean up build files
 clean:
 	rm -rf $(OBJ_DIR) $(BIN_DIR)
 
-.PHONY: all clean run
+# Phony targets
+.PHONY: all clean
