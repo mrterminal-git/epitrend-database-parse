@@ -169,14 +169,15 @@ namespace influxdb_cpp {
         out.append(src.c_str() + start, src.length() - start);
     }
 
-    size_t WriteCallback(void* contents, size_t size, size_t nmemb, void* userp) {
+    // INSERTED BY VOLTER
+    
+    inline size_t WriteCallback(void* contents, size_t size, size_t nmemb, void* userp) {
         ((std::string*)userp)->append((char*)contents, size * nmemb);
         return size * nmemb;
     }
 
-    // INSERTED BY VOLTER
 
-    int query_with_filter(std::string& response, const std::string& bucket, const std::string& org, 
+    inline int query_with_filter(std::string& response, const std::string& bucket, const std::string& org, 
         const std::string& filter, const influxdb_cpp::server_info& si) {
         CURL* curl;
         CURLcode res;
