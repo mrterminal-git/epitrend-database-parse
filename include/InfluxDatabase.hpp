@@ -10,9 +10,15 @@ private:
     bool isConnected;
 
 public:
+    // Constructors and destructors
+    InfluxDatabase(const std::string& host, int port, const std::string& db, 
+                   const std::string& user = "", const std::string& password = "", 
+                   const std::string& precision = "ms", const std::string& token = "",
+                   bool verbose = false);
     InfluxDatabase();
     ~InfluxDatabase();
 
+    // Connection and disconnections
     bool connect(const std::string& host, int port, const std::string& db,
                  const std::string& user = "", const std::string& password = "",
                  const std::string& precision = "ms", const std::string& token = "",
@@ -21,15 +27,18 @@ public:
     bool getConnectionStatus() const { return isConnected; }
     bool checkConnection(bool verbose = false);
 
-    InfluxDatabase(const std::string& host, int port, const std::string& db, 
-                   const std::string& user = "", const std::string& password = "", 
-                   const std::string& precision = "ms", const std::string& token = "",
-                   bool verbose = false);
 
+    // Writing to bucket
     bool writeData(const std::string& measurement, const std::string& tags,
                    const std::string& fields, long long timestamp = 0, bool verbose = false);
+    
+    // Querying data
     std::string queryData(const std::string& query, bool verbose = false);
+
+    // Writing batch to bucket
     bool writeBatchData(const std::vector<std::string>& dataPoints, bool verbose = false);
+    
+    // Parsing query
     std::vector<std::unordered_map<std::string, std::string>> parseQueryResult(const std::string& response);
     
 };

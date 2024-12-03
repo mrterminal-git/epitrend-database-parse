@@ -101,7 +101,8 @@ bool InfluxDatabase::writeData(const std::string& measurement, const std::string
     }
 
     if (verbose) {
-        std::cout << "Data written successfully: " << lineProtocol.str() << std::endl;
+        std::cout << "Data written successfully: " << lineProtocol.str() << "\n"
+        << "Reponse: " << response << "\n";
     }
     return true;
 }
