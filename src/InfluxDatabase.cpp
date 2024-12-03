@@ -8,8 +8,9 @@ InfluxDatabase::~InfluxDatabase() {
 
 bool InfluxDatabase::connect(const std::string& host, int port, const std::string& db,
                              const std::string& user, const std::string& password,
-                             const std::string& precision, bool verbose) {
-    serverInfo = influxdb_cpp::server_info(host, port, db, user, password, precision);
+                             const std::string& precision, const std::string& token
+                             bool verbose) {
+    serverInfo = influxdb_cpp::server_info(host, port, db, user, password, precision, token);
     
     // Test connection by sending a simple query or ping
     std::string response;
@@ -33,6 +34,7 @@ void InfluxDatabase::disconnect(bool verbose) {
         if (verbose) {
             std::cout << "Disconnecting from InfluxDB..." << std::endl;
         }
+        serverInfo = influxdb_cpp::server_info(host, port, db, user, password, precision, token); // Reset server info
         isConnected = false; // Reset connection status
     }
 }

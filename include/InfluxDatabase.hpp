@@ -15,7 +15,8 @@ public:
 
     bool connect(const std::string& host, int port, const std::string& db,
                  const std::string& user = "", const std::string& password = "",
-                 const std::string& precision = "ms", bool verbose = false);
+                 const std::string& precision = "ms", const std::string& token = "",
+                 bool verbose = false);
     void disconnect(bool verbose = false);
     bool getConnectionStatus() const { return isConnected; }
     bool checkConnection(bool verbose = false);
