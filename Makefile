@@ -18,7 +18,7 @@ SRCS = $(wildcard $(SRC_DIR)/*.cpp)
 OBJS = $(patsubst $(SRC_DIR)/%.cpp,$(OBJ_DIR)/%.o,$(SRCS))
 
 # Libraries
-LIBS = -lodbc
+LIBS = -lodbc -lcurl
 
 # Default target
 all: $(TARGET)

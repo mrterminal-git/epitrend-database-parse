@@ -13,6 +13,7 @@
 #include <sstream>
 #include <cstring>
 #include <cstdio>
+#include <curl/curl.h>
 
 #ifdef _WIN32
     #define NOMINMAX
@@ -167,6 +168,45 @@ namespace influxdb_cpp {
         }
         out.append(src.c_str() + start, src.length() - start);
     }
+
+    size_t WriteCallback(void* contents, size_t size, size_t nmemb, void* userp) {
+        ((std::string*)userp)->append((char*)contents, size * nmemb);
+        return size * nmemb;
+    }
+
+    // INSERTED BY VOLTER
+
+    int query_with_filter(std::string& response, const std::string& bucket, const std::string& org, 
+        const std::string& filter, const influxdb_cpp::server_info& si) {
+        CURL* curl;
+        CURLcode res;
+        curl = curl_easy_init();
+        if(curl) {
+            std::string url = "http://" + si.host_ + ":" + std::to_string(si.port_) + "/api/v2/query?org=" + org;
+            std::string auth_header = "Authorization: Token " + si.token_;
+            std::string data = "from(bucket: \"" + bucket + "\") |> range(start: -1h) |> filter(fn: (r) => " + filter + ")";
+
+            struct curl_slist* headers = NULL;
+            headers = curl_slist_append(headers, "Content-Type: application/vnd.flux");
+            headers = curl_slist_append(headers, auth_header.c_str());
+
+            curl_easy_setopt(curl, CURLOPT_URL, url.c_str());
+            curl_easy_setopt(curl, CURLOPT_HTTPHEADER, headers);
+            curl_easy_setopt(curl, CURLOPT_POSTFIELDS, data.c_str());
+            curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, WriteCallback);
+            curl_easy_setopt(curl, CURLOPT_WRITEDATA, &response);
+
+            res = curl_easy_perform(curl);
+            if(res != CURLE_OK) {
+                curl_easy_cleanup(curl);
+                return -1;
+            }
+            curl_easy_cleanup(curl);
+        }
+        return 0;
+    }
+
+    // INSERTED BY VOLTER
 
     namespace detail {
         struct tag_caller : public builder {
