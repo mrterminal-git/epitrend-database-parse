@@ -23,7 +23,8 @@ public:
 
     InfluxDatabase(const std::string& host, int port, const std::string& db, 
                    const std::string& user = "", const std::string& password = "", 
-                   const std::string& precision = "ms");
+                   const std::string& precision = "ms", const std::string& token = "",
+                   bool verbose = false);
 
     bool writeData(const std::string& measurement, const std::string& tags,
                    const std::string& fields, long long timestamp = 0, bool verbose = false);

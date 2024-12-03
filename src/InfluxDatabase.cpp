@@ -2,13 +2,22 @@
 
 InfluxDatabase::InfluxDatabase() : isConnected(false), serverInfo("localhost", 8086, ""){}
 
+InfluxDatabase::InfluxDatabase(const std::string& host, int port, const std::string& db, 
+                   const std::string& user, const std::string& password, 
+                   const std::string& precision, const std::string& token,
+                   bool verbose)
+     : isConnected(false), serverInfo("localhost", 8086, ""){
+        connect(host, port, db, user, password, precision, token, verbose);
+     }
+
+
 InfluxDatabase::~InfluxDatabase() {
     disconnect();
 }
 
 bool InfluxDatabase::connect(const std::string& host, int port, const std::string& db,
                              const std::string& user, const std::string& password,
-                             const std::string& precision, const std::string& token
+                             const std::string& precision, const std::string& token,
                              bool verbose) {
     serverInfo = influxdb_cpp::server_info(host, port, db, user, password, precision, token);
     
@@ -34,7 +43,7 @@ void InfluxDatabase::disconnect(bool verbose) {
         if (verbose) {
             std::cout << "Disconnecting from InfluxDB..." << std::endl;
         }
-        serverInfo = influxdb_cpp::server_info(host, port, db, user, password, precision, token); // Reset server info
+        serverInfo = influxdb_cpp::server_info("localhost", 8086, ""); // Reset server info
         isConnected = false; // Reset connection status
     }
 }
