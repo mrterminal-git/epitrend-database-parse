@@ -9,14 +9,17 @@
 #include <curl/curl.h>
 
 int main() {
+std::string target_org = "terminal";
+std::string target_bucket = "test-bucket";
 
 influxdb_cpp::server_info si("127.0.0.1", 
     8086, 
-    "test-bucket", 
+    target_bucket, 
     "", 
     "", 
     "", 
-    "WjN4nU1NT2rVlb79Y8_3Mtp4aFPmXxfPVFn_rMYgFKvrN1XdRlzcZbS5hon7j8mcz2QrVgKeJEIt-YnkEBIbRg==");
+    "E50icKBWaeccyZRwfdYDTtYxm10cHRPp8NRY0mp0upeEDZJC_STQfmJJzoBK9qCPm6mVUR9FhzysNlemzEmsOw==");
+
 
 std::string response;
 std::string query_show_database = "SHOW DATABASES";
@@ -32,7 +35,7 @@ std::cout << response << "\n";
 
 // Query with a filter
 std::string filter = "r._measurement == \"foo\" and r.tag_key == \"tag_value\"";
-result = influxdb_cpp::query_with_filter(response, "test-bucket", "au-mbe", filter, si);
+result = influxdb_cpp::query_with_filter(response, target_bucket, target_org, filter, si);
 if (result != 0) {
     std::cerr << "Failed to query InfluxDB with filter" << std::endl;
     throw std::runtime_error("Failed to query InfluxDB with filter");
