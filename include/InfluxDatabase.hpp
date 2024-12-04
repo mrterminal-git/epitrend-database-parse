@@ -1,8 +1,11 @@
 #ifndef INFLUXDATABASE_HPP
 #define INFLUXDATABASE_HPP
 
-#include "influxdb.hpp"
 #include "Common.hpp"
+#include "influxdb.hpp"
+#include "EpitrendBinaryData.hpp"
+
+#include <curl/curl.h>
 
 class InfluxDatabase {
 public:
@@ -22,7 +25,7 @@ public:
                 const std::string& precision = "ms", const std::string& token = "",
                 bool verbose = false);
     void disconnect(bool verbose = false);
-    bool getConnectionStatus() const { return isConnected; }
+    // bool getConnectionStatus() const { return isConnected; }
     bool checkConnection(bool verbose = false);
 
 
@@ -41,6 +44,9 @@ public:
     // Parsing query
     std::vector<std::unordered_map<std::string, std::string>> parseQueryResult(const std::string& response);
     std::vector<std::unordered_map<std::string,std::string>> parseQueryResponse(std::string& response, bool verbose = false);
+
+    // Copying to bucket
+    bool copyEpitrendToBucket(EpitrendBinaryData data);
 
 private:
     influxdb_cpp::server_info serverInfo;

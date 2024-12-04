@@ -130,5 +130,6 @@
     "forward_list": "cpp",
     "ratio": "cpp",
     "unordered_set": "cpp"
-  }
+  },
+  "C_Cpp.errorSquiggles": "enabled"
 }

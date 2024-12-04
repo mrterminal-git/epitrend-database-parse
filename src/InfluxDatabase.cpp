@@ -382,3 +382,138 @@ std::string InfluxDatabase::trimInternal(const std::string& str) {
         }).base(), trimmed.end());
         return trimmed;
 }
+
+bool InfluxDatabase::copyEpitrendToBucket(EpitrendBinaryData data){
+    // Batch size
+    const int batchSize = 1000;
+    int count = 0;
+    const std::string epitrend_machine_name = "GEN200";
+
+    // Prepare time-series (ts) query write statement e.g.
+    //measurement + ",sensor_id_=1 num=299i 1735728000000";
+    struct ts_write_struct {
+        std::string sensor_id;
+        std::string num;  // MUST BE A DECIMAL
+        std::string timestamp;
+        std::string write_query;
+        void set_write_query(){write_query ="ts,sensor_id_=" + sensor_id + "num=" + num + " " + timestamp;}
+    };
+
+    // Prepare name-series (ns) query write statement e.g.
+    //measurement + ",machine_=\"machine.name.2\",sensor_=\"sensor.name.2\" sensor_id=\"4\" " + std::to_string(default_ns_timestamp);
+    struct ns_write_struct {
+        std::string machine_name;
+        std::string sensor_name;
+        std::string sensor_id;
+        std::string default_timestamp = "2000000000000";
+        std::string write_query;
+        void set_write_query(){write_query = "ns,machine_=\""+ 
+        machine_name + "\",sensor_=\"" + 
+        sensor_name + "\" sensor_id=\"" + 
+        sensor_id + "\" " + 
+        default_timestamp;}
+    };
+
+    // Prepare name-series (ns) query read statement
+    //     "from(bucket: \"test-bucket\")"
+    //   "|> range(start: -100y, stop: 50y)"
+    //   "|> filter(fn: (r) => r[\"_measurement\"] == \"ns\")"
+    ;
+    struct ns_read_struct {
+        std::string bucket;
+        std::string machine_name;
+        std::string sensor_name;
+        std::string read_query;
+        void set_read_query(){"from(bucket: \"" + bucket + "\") "
+            "|> range(start: -50y, stop: 100y)"
+            "|> filter(fn: (r) => r[\"_measurement\"] == \"ns\")" 
+            "|> filter(fn: (r) => r[\"sensor_\"] == \"" + sensor_name + "\")"
+            "|> filter(fn: (r) => r[\"machine_\"] == \"" + machine_name + "\")";
+        }
+    };
+
+    // Loop through all data
+    std::unordered_map<std::string, std::unordered_map<double,double>> raw_data = data.getAllTimeSeriesData();
+    for(const auto& name_data_map : raw_data) {
+        // CHECK IF PART NAME IS IN NS TABLE
+        // IF IT ISN'T
+            // ADD ENTRY OF MACHINE NAME AND PART NAME INTO TABLE
+            // GET NEW SENSOR_ID FOR NAME AND ALSO INTO TABLE
+        // IF IT IS
+            // GET THE SENSOR_ID
+        // ENTER ALL ASSOCIATED DATA INTO TS TABLE WITH ASSOCIATE SENSOR ID
+    }
+    return true;
+}
+
+// //  more efficient version of coptToSQL
+// bool AzureDatabase::copyToSQL2(const std::string& tableName, EpitrendBinaryData data) {
+//     try {
+//         // Start a transaction
+//         beginTransaction();
+
+//         // Prepare the insert statement
+//         std::string insertQuery = "INSERT INTO " + tableName + " (date_time, name, value) VALUES ";
+
+//         // Batch size
+//         const int batchSize = 1000;
+//         int count = 0;
+
+//         // Collect keys for batch uniqueness check
+//         std::vector<std::pair<std::string, std::string>> keys;
+//         for (const auto& [name, timeSeries] : data.getAllTimeSeriesData()) {
+//             for (const auto& [time, value] : timeSeries) {
+//                 std::string dateTime = convertDoubleToDateTime(time);
+//                 keys.emplace_back(dateTime, name);
+
+//             }
+        
+//         }
+
+//         // Get existing records in batch
+//         std::cout << "Getting existing records...\n";
+//         std::unordered_set<std::string> existingRecords = getExistingRecords(tableName, keys);
+//         std::cout << "Finished getting existing records...\n";
+        
+//         // Iterate over the data and create the insert query
+//         for (const auto& [name, timeSeries] : data.getAllTimeSeriesData()) {
+//             for (const auto& [time, value] : timeSeries) {
+//                 std::string dateTime = convertDoubleToDateTime(time);
+//                 std::string key = dateTime + "|" + name;
+//                 if (existingRecords.find(key) != existingRecords.end()) {
+//                     continue;
+//                 }
+                
+//                 std::cout << "Inserting name: " << name << ", time: " << dateTime << ", value: " << value << " into " << tableName << "\n";
+//                 insertQuery += "('" + dateTime + "', '" + name + "', " + std::to_string(value) + "),";
+//                 count++;
+
+//                 // Execute the batch insert when the batch size is reached
+//                 if (count >= batchSize) {
+//                     insertQuery.pop_back(); // Remove the trailing comma
+//                     std::cout << "Batch limit reached - executing INSERT query for batch... " << "\n";
+//                     queryExecute(insertQuery);
+//                     insertQuery = "INSERT INTO " + tableName + " (date_time, name, value) VALUES ";
+//                     count = 0;
+                    
+//                 }
+//             }
+//         }
+
+//         // Insert any remaining data
+//         if (count > 0) {
+//             insertQuery.pop_back(); // Remove the trailing comma
+//             queryExecute(insertQuery);
+//         }
+
+//         // Commit the transaction
+//         commitTransaction();
+//     } catch (const std::exception& e) {
+//         // Rollback the transaction in case of an error
+//         rollbackTransaction();
+//         std::cerr << "Error during copyToSQL2: " << e.what() << std::endl;
+//         return false;
+//     }
+
+//     return true;
+// }
