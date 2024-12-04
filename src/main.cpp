@@ -96,13 +96,68 @@ for(const auto& element : parsed_response){
     std::cout << "\n";
 }
 
-// CHECK IF PART NAME IS IN NS TABLE
-// IF IT ISN'T
-    // ADD ENTRY OF MACHINE NAME AND PART NAME INTO TABLE
-    // GET NEW SENSOR_ID FOR NAME AND ALSO INTO TABLE
-// IF IT IS
-    // GET THE SENSOR_ID
-// ENTER DATA INTO TS TABLE WITH ASSOCIATE SENSOR ID
+EpitrendBinaryData binary_data;
+std::ofstream epitrend_finished_file(Config::getOutputDir + "times_inserted_into_SQL_server.txt", std::ios_base::app);
+std::string times_finished_string;
+int year;
+year = 2024;
+for (int month = 1; month < 13; month++) {
+for (int day = 1; day < 32; day++) { 
+for (int hour = 0; hour < 25; hour++) {
+    try {
+        // Parse the Epitrend binary data file
+        FileReader::parseEpitrendBinaryDataFile(binary_data,year,month,day,hour,false);
+    
+    } catch ( std::exception& e) {
+        // Catching errors due to times that exist
+        std::cout << "Error occured for " << year << "," << month << "," << day << "," << hour << "\n" << e.what() << "\n";
+
+    }
+    
+    // Log the parsed file
+    times_finished_string += std::to_string(year) + "," + std::to_string(month) + "," + std::to_string(day) + std::to_string(hour) + "\n";
+    
+    // Check the current size of the epitrend binary data object
+    std::cout << "Current size of EpitrendBinaryData object: " << binary_data.getByteSize() << "\n";
+    if (binary_data.getByteSize() > 0.1 * pow(10.0, 6.0) ) { // Limit INSERTS to 50 mb packs
+        std::cout << "Curret epitrend data object exceeded size limit -> inserting data into SQL DB and flushing object...\n";
+        
+        // Insert data into SQL and flush current epitrend data
+        binary_data.printFileAllTimeSeriesData("temp.txt");
+
+        // Copy all data into SQL table
+        // ===================AZURE SQL VERSION===================
+        // auto start = std::chrono::system_clock::now();
+        // db.copyToSQL2("epitrend_data_time_series", binary_data);
+        // auto end = std::chrono::system_clock::now();
+        // auto elapsed =
+        //     std::chrono::duration_cast<std::chrono::seconds>(end - start);  
+        // std::cout << elapsed.count() << '\n';
+
+        // ===================INFLUXDB VERSION===================
+        // CHECK IF PART NAME IS IN NS TABLE
+        // IF IT ISN'T
+            // ADD ENTRY OF MACHINE NAME AND PART NAME INTO TABLE
+            // GET NEW SENSOR_ID FOR NAME AND ALSO INTO TABLE
+        // IF IT IS
+            // GET THE SENSOR_ID
+        // ENTER DATA INTO TS TABLE WITH ASSOCIATE SENSOR ID
+
+        // Flush the current epitrend data object
+        binary_data.clear();
+        
+        // Insert the completed times into log and flush
+        epitrend_finished_file << times_finished_string;
+        times_finished_string = "";
+        
+    }
+}
+}
+}
+epitrend_finished_file.close();
+
+
+
 
 return 0;
 }
