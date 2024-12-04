@@ -1,13 +1,16 @@
 #include "InfluxDatabase.hpp"
 
+using json = nlohmann::json;
+
 InfluxDatabase::InfluxDatabase() : isConnected(false), serverInfo("localhost", 8086, ""){}
 
-InfluxDatabase::InfluxDatabase(const std::string& host, int port, const std::string& db, 
-                   const std::string& user, const std::string& password, 
-                   const std::string& precision, const std::string& token,
-                   bool verbose)
+InfluxDatabase::InfluxDatabase(const std::string& host, int port, 
+                                const std::string& org, const std::string& db, 
+                                const std::string& user, const std::string& password, 
+                                const std::string& precision, const std::string& token,
+                                bool verbose)
      : isConnected(false), serverInfo("localhost", 8086, ""){
-        connect(host, port, db, user, password, precision, token, verbose);
+        connect(host, port, org, db, user, password, precision, token, verbose);
      }
 
 
@@ -15,7 +18,8 @@ InfluxDatabase::~InfluxDatabase() {
     disconnect();
 }
 
-bool InfluxDatabase::connect(const std::string& host, int port, const std::string& db,
+bool InfluxDatabase::connect(const std::string& host, int port, 
+                             const std::string& org, const std::string& db,
                              const std::string& user, const std::string& password,
                              const std::string& precision, const std::string& token,
                              bool verbose) {
@@ -30,6 +34,15 @@ bool InfluxDatabase::connect(const std::string& host, int port, const std::strin
         }
         throw std::runtime_error("Failed to connect to InfluxDB: " + response);
     }
+
+    host_ = host;
+    port_ = port;
+    org_ = org;
+    db_ = db;
+    user_ = user;
+    password_ = password;
+    precision_ = precision;
+    token_ = token;
 
     isConnected = true;
     if (verbose) {
@@ -144,9 +157,51 @@ std::string InfluxDatabase::queryData(const std::string& query, bool verbose) {
     int result = influxdb_cpp::query(response, query, serverInfo);
     if (result != 0) {
         if (verbose) {
-            std::cerr << "Error querying InfluxDB: " << response << std::endl;
         }
         throw std::runtime_error("Failed to query InfluxDB: " + response);
+    }
+
+    if (verbose) {
+        std::cout << "Query executed successfully. Response: " << response << std::endl;
+    }
+
+    return response;
+}
+
+std::string InfluxDatabase::queryData2(const std::string& query, bool verbose) {
+    if (query.empty()) {
+        if (verbose) {
+            std::cerr << "Error: Query string is empty." << std::endl;
+        }
+        throw std::invalid_argument("Query string is empty.");
+    }
+
+    std::string response;
+    std::string url = "http://" + host_ + ":" + std::to_string(port_) + "/api/v2/query?org=" + org_;
+    std::string auth_header = "Authorization: Token " + token_;
+
+    CURL* curl = curl_easy_init();
+    if(curl) {
+        struct curl_slist* headers = NULL;
+        headers = curl_slist_append(headers, "Content-Type: application/vnd.flux");
+        headers = curl_slist_append(headers, auth_header.c_str());
+
+        curl_easy_setopt(curl, CURLOPT_URL, url.c_str());
+        curl_easy_setopt(curl, CURLOPT_HTTPHEADER, headers);
+        curl_easy_setopt(curl, CURLOPT_POSTFIELDS, query.c_str());
+        curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, WriteCallback);
+        curl_easy_setopt(curl, CURLOPT_WRITEDATA, &response);
+
+        CURLcode res = curl_easy_perform(curl);
+        if(res != CURLE_OK) {
+            if (verbose) {
+                std::cerr << "Error querying InfluxDB: " << curl_easy_strerror(res) << std::endl;
+            }
+            curl_easy_cleanup(curl);
+            throw std::runtime_error("Failed to query InfluxDB: " + std::string(curl_easy_strerror(res)));
+        }
+
+        curl_easy_cleanup(curl);
     }
 
     if (verbose) {
@@ -196,4 +251,132 @@ std::vector<std::unordered_map<std::string, std::string>> InfluxDatabase::parseQ
     }
 
     return parsedData;
+}
+
+std::vector<DataPoint> InfluxDatabase::parseQueryResponse(const std::string& response) {
+    std::vector<DataPoint> parsed_data;
+    std::istringstream response_stream(response);
+    std::string line;
+
+    // Parse the header line to get the column names
+    std::getline(response_stream, line);
+    std::istringstream header_stream(line);
+    std::vector<std::string> columns;
+    std::string column;
+    while (std::getline(header_stream, column, ',')) {
+        columns.push_back(column);
+    }
+
+    // Parse each line of the response
+    while (std::getline(response_stream, line)) {
+        std::istringstream line_stream(line);
+        DataPoint data_point;
+        std::string value;
+        for (size_t i = 0; i < columns.size(); ++i) {
+            std::getline(line_stream, value, ',');
+            if (columns[i] == "_time") {
+                data_point.time = value;
+            } else if (columns[i] == "_measurement") {
+                data_point.measurement = value;
+            } else if (columns[i] == "_value") {
+                data_point.fields["_value"] = value;
+            } else if (columns[i] == "_field") {
+                data_point.fields["_field"] = value;
+            } else {
+                data_point.tags[columns[i]] = value;
+            }
+        }
+        parsed_data.push_back(data_point);
+    }
+
+    return parsed_data;
+}
+
+WriteResult InfluxDatabase::writeBulkData(const std::vector<std::string>& data_points, bool verbose) {
+    WriteResult result;
+    result.success = true;
+
+    CURL* curl;
+    CURLcode res;
+    curl = curl_easy_init();
+    if(curl) {
+        std::string url = "http://" + host_ + ":" + std::to_string(port_) + "/api/v2/write?org=" + org_ + "&bucket=" + db_ + "&precision=" + precision_;
+        std::string auth_header = "Authorization: Token " + token_;
+
+        std::string bulk_data;
+        for (const auto& point : data_points) {
+            bulk_data += point + "\n";
+        }
+
+        struct curl_slist* headers = NULL;
+        headers = curl_slist_append(headers, "Content-Type: text/plain");
+        headers = curl_slist_append(headers, auth_header.c_str());
+
+        std::string response;
+        curl_easy_setopt(curl, CURLOPT_URL, url.c_str());
+        curl_easy_setopt(curl, CURLOPT_HTTPHEADER, headers);
+        curl_easy_setopt(curl, CURLOPT_POSTFIELDS, bulk_data.c_str());
+        curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, WriteCallback);
+        curl_easy_setopt(curl, CURLOPT_WRITEDATA, &response);
+
+        res = curl_easy_perform(curl);
+        if(res != CURLE_OK) {
+            if (verbose) {
+                std::cerr << "Failed to write bulk data: " << curl_easy_strerror(res) << std::endl;
+            }
+            curl_easy_cleanup(curl);
+            result.success = false;
+            result.error_message = curl_easy_strerror(res);
+            result.data_out = bulk_data;
+            return result;
+        }
+
+        // Check if the response is empty
+        if (response.empty()) {
+            if (verbose) {
+                std::cerr << "Empty response from server." << std::endl;
+            }
+            curl_easy_cleanup(curl);
+            result.success = true;
+            result.error_message = "Empty response from server.";
+            result.data_out = bulk_data;
+            return result;
+        }
+
+        // Parse the JSON response to check for errors
+        try {
+            auto json_response = json::parse(response);
+            if (json_response.contains("code") && json_response["code"] != "success") {
+                if (verbose) {
+                    std::cerr << "Error writing bulk data: " << json_response.dump() << std::endl;
+                }
+                curl_easy_cleanup(curl);
+                result.success = false;
+                result.error_message = json_response.dump();
+                result.data_out = bulk_data;
+                return result;
+            }
+        } catch (const json::parse_error& e) {
+            if (verbose) {
+                std::cerr << "Failed to parse response: " << e.what() << std::endl;
+            }
+            curl_easy_cleanup(curl);
+            result.success = false;
+            result.error_message = e.what();
+            result.data_out = bulk_data;
+            return result;
+        }
+
+        if (verbose) {
+            std::cout << "Bulk data written successfully. Response: " << response << std::endl;
+        }
+
+        curl_easy_cleanup(curl);
+    }
+    return result;
+}
+
+size_t InfluxDatabase::WriteCallback(void* contents, size_t size, size_t nmemb, void* userp) {
+    ((std::string*)userp)->append((char*)contents, size * nmemb);
+    return size * nmemb;
 }
