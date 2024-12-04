@@ -244,6 +244,34 @@ std::string InfluxDatabase::queryData(const std::string& query, bool verbose) {
     return response;
 }
 
+bool InfluxDatabase::queryData2(std::string& response, const std::string& query) {
+    CURL* curl;
+    CURLcode res;
+    curl = curl_easy_init();
+    if(curl) {
+        std::string url = "http://" + host_ + ":" + std::to_string(port_) + "/api/v2/query?org=" + org_;
+        std::string auth_header = "Authorization: Token " + token_;
+
+        struct curl_slist* headers = NULL;
+        headers = curl_slist_append(headers, "Content-Type: application/vnd.flux");
+        headers = curl_slist_append(headers, auth_header.c_str());
+
+        curl_easy_setopt(curl, CURLOPT_URL, url.c_str());
+        curl_easy_setopt(curl, CURLOPT_HTTPHEADER, headers);
+        curl_easy_setopt(curl, CURLOPT_POSTFIELDS, query.c_str());
+        curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, WriteCallback);
+        curl_easy_setopt(curl, CURLOPT_WRITEDATA, &response);
+
+        res = curl_easy_perform(curl);
+        if(res != CURLE_OK) {
+            curl_easy_cleanup(curl);
+            return -1;
+        }
+        curl_easy_cleanup(curl);
+    }
+    return true;
+}
+
 std::vector<std::unordered_map<std::string, std::string>> InfluxDatabase::parseQueryResult(const std::string& response) {
     std::vector<std::unordered_map<std::string, std::string>> parsedData;
 
@@ -286,3 +314,71 @@ std::vector<std::unordered_map<std::string, std::string>> InfluxDatabase::parseQ
     return parsedData;
 }
 
+std::vector<std::unordered_map<std::string,std::string>> InfluxDatabase::parseQueryResponse(std::string& response, bool verbose) {
+    std::vector<std::unordered_map<std::string,std::string>> out;
+    
+    std::istringstream responseStream(response);
+    std::string line;
+
+    // Parse headers (first line)
+    std::vector<std::string> headers;
+    if (std::getline(responseStream, line)) {
+        if(verbose) std::cout << "Line :" << line << "\n";
+        headers = split(trimInternal(line), ",");
+    }
+    if(verbose) for(auto element : headers) {std::cout << "header|" << element << "|\n"; }
+
+    // Parse rows
+    std::vector<std::string> entries;
+    while (std::getline(responseStream, line)) {
+        if(trimInternal(line) == "") continue;
+        std::istringstream rowStream(line);
+        std::string value;
+        std::unordered_map<std::string, std::string> row;
+        size_t colIndex = 0;
+
+        if(verbose) std::cout << "Current line:|" << trimInternal(line) << "|\n";
+        entries = split(trimInternal(line), ",");
+
+        if(verbose) for(auto element : entries) {std::cout << "entry|" << element << "|\n";}
+
+        if(entries.size() != headers.size()) {
+            std::cerr << "Error in InfluxDatabase::parseQueryResponse call: number of headers does not match number of entries\n";
+            throw std::runtime_error("Error in InfluxDatabase::parseQueryResponse call: number of headers does not match number of entries\n");
+        }
+        
+        std::unordered_map<std::string,std::string> headers_entries;
+        for(int i = 0; i < entries.size(); i++) {
+            headers_entries[headers.at(i)] = entries.at(i);
+        }
+
+        out.push_back(headers_entries);
+    }
+
+    return out;
+
+}
+
+
+// Internal using of splitting by delimiter
+std::vector<std::string> InfluxDatabase::split(std::string s, const std::string& delimiter) {
+    std::vector<std::string> tokens;
+    size_t pos = 0;
+    std::string token;
+    while ((pos = s.find(delimiter)) != std::string::npos) {
+        token = s.substr(0, pos);
+        tokens.push_back(token);
+        s.erase(0, pos + delimiter.length());
+    }
+    tokens.push_back(s);
+
+    return tokens;
+}
+
+std::string InfluxDatabase::trimInternal(const std::string& str) {
+        std::string trimmed = str;
+        trimmed.erase(std::find_if(trimmed.rbegin(), trimmed.rend(), [](unsigned char ch) {
+            return !std::isspace(ch);
+        }).base(), trimmed.end());
+        return trimmed;
+}

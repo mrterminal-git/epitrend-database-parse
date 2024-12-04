@@ -32,6 +32,7 @@ public:
     
     // Querying data
     std::string queryData(const std::string& query, bool verbose = false);
+    bool queryData2(std::string& response, const std::string& query);
 
     // Writing batch to bucket
     bool writeBatchData(const std::vector<std::string>& dataPoints, bool verbose = false);
@@ -39,7 +40,7 @@ public:
 
     // Parsing query
     std::vector<std::unordered_map<std::string, std::string>> parseQueryResult(const std::string& response);
-    
+    std::vector<std::unordered_map<std::string,std::string>> parseQueryResponse(std::string& response, bool verbose = false);
 
 private:
     influxdb_cpp::server_info serverInfo;
@@ -54,6 +55,13 @@ private:
     bool isConnected;
 
     static size_t WriteCallback(void* contents, size_t size, size_t nmemb, std::string* s);
+
+    // Internal using of splitting by delimiter
+    static std::vector<std::string> split(std::string s, const std::string& delimiter);
+
+    // Internal trim function 
+    static std::string trimInternal(const std::string& str);
+    
 };
 
 #endif // INFLUXDATABASE_HPP

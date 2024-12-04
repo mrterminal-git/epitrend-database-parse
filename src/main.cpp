@@ -67,16 +67,35 @@ const std::string fields = "value=199";
 long long timestamp = 1735728000000; // Timestamp for 2024-Nov-01 00:00:00.000 in milliseconds
 long long default_ns_timestamp = 2000000000000;
 
-std::vector<std::string> data_points;
-data_points.push_back(measurement + ",sensor_id_=1 num=299i 1735728000000");
-data_points.push_back(measurement + ",sensor_id_=2 num=199i 1735728000000");
+// std::vector<std::string> data_points;
+// data_points.push_back(measurement + ",sensor_id_=1 num=299i 1735728000000");
+// data_points.push_back(measurement + ",sensor_id_=2 num=199i 1735728000000");
 
 // data_points.push_back(measurement + ",machine_=\"machine.name.1\",sensor_=\"sensor.name.1\" sensor_id=\"1\" " + std::to_string(default_ns_timestamp));
 // data_points.push_back(measurement + ",machine_=\"machine.name.2\",sensor_=\"sensor.name.1\" sensor_id=\"2\" " + std::to_string(default_ns_timestamp));
 // data_points.push_back(measurement + ",machine_=\"machine.name.1\",sensor_=\"sensor.name.2\" sensor_id=\"3\" " + std::to_string(default_ns_timestamp));
 // data_points.push_back(measurement + ",machine_=\"machine.name.2\",sensor_=\"sensor.name.2\" sensor_id=\"4\" " + std::to_string(default_ns_timestamp));
 
-influx_db.writeBatchData2(data_points, true);
+// influx_db.writeBatchData2(data_points, true);
+
+//-------------------------Section for testing influxDatabase wrapper class: query-------------------------
+const std::string query = "from(bucket: \"test-bucket\")"
+  "|> range(start: -100y, stop: 50y)"
+  "|> filter(fn: (r) => r[\"_measurement\"] == \"ts\")";
+
+std::string response;
+influx_db.queryData2(response, query);   
+std::cout << "Query: " << query << "\n";
+std::cout << "Response: " << response << "\n";
+
+std::vector<std::unordered_map<std::string,std::string>> parsed_response = influx_db.parseQueryResponse(response);
+for(const auto& element : parsed_response){
+    for (const auto& element_inner : element){ 
+        std::cout << element_inner.first << "==" << element_inner.second << "||";
+    }
+    std::cout << "\n";
+}
+
 
 return 0;
 }
