@@ -96,6 +96,13 @@ for(const auto& element : parsed_response){
     std::cout << "\n";
 }
 
+// CHECK IF PART NAME IS IN NS TABLE
+// IF IT ISN'T
+    // ADD ENTRY OF MACHINE NAME AND PART NAME INTO TABLE
+    // GET NEW SENSOR_ID FOR NAME AND ALSO INTO TABLE
+// IF IT IS
+    // GET THE SENSOR_ID
+// ENTER DATA INTO TS TABLE WITH ASSOCIATE SENSOR ID
 
 return 0;
 }
