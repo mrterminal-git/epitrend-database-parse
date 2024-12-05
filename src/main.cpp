@@ -9,14 +9,14 @@
 #include <curl/curl.h>
 
 int main() {
-const std::string& org = "au-eng-mbe";
+const std::string& org = "terminal";
 const std::string& host = "127.0.0.1";
 const int port = 8086;
 const std::string& bucket = "test-bucket";
 const std::string& user = "";
 const std::string& password = "";
 const std::string& precision = "ms";
-const std::string& token = "lZ16pxdtlcFQxE0n2gQ5u64yy-uuWS1HDp0UUQzqZMBtue64_CFZKDqpiHoSk5npY4Q5Bk6kIqToGTVwxx5nQw==";
+const std::string& token = "E50icKBWaeccyZRwfdYDTtYxm10cHRPp8NRY0mp0upeEDZJC_STQfmJJzoBK9qCPm6mVUR9FhzysNlemzEmsOw==";
 
 // influxdb_cpp::server_info si("127.0.0.1", 
 //     8086, 
@@ -68,7 +68,7 @@ long long timestamp = 1735728000000; // Timestamp for 2024-Nov-01 00:00:00.000 i
 long long default_ns_timestamp = 2000000000000;
 
 std::vector<std::string> data_points;
-data_points.push_back(measurement + ",sensor_id_=0 num=-1.0 2000000000000");
+// data_points.push_back(measurement + ",sensor_id_=0 num=-1.0 2000000000000");
 // data_points.push_back(measurement + ",sensor_id_=2 num=199i 1735728000000");
 
 // data_points.push_back(measurement + ",machine_=init.machine.name.1,sensor_=init.sensor.name.1 sensor_id=\"0\" " + std::to_string(default_ns_timestamp));
@@ -76,7 +76,7 @@ data_points.push_back(measurement + ",sensor_id_=0 num=-1.0 2000000000000");
 // data_points.push_back(measurement + ",machine_=machine.name.1,sensor_=sensor.name.2 sensor_id=\"3\" " + std::to_string(default_ns_timestamp));
 // data_points.push_back(measurement + ",machine_=machine.name.2,sensor_=sensor.name.2 sensor_id=\"4\" " + std::to_string(default_ns_timestamp));
 
-influx_db.writeBatchData2(data_points, true);
+// influx_db.writeBatchData2(data_points, true);
 
 //-------------------------Section for testing influxDatabase wrapper class: query-------------------------
 // std::string query = "from(bucket: \"test-bucket\")"
@@ -133,7 +133,7 @@ for(int hour = 0; hour < 24; hour++) {
 
     } catch ( std::exception& e) {
         // Catching errors due to times that exist
-        std::cout << "No Epitrend data file found for: " << year << "," << month << "," << day << "," << hour << "\n" << e.what() << "\n";
+        // std::cout << "No Epitrend data file found for: " << year << "," << month << "," << day << "," << hour << "\n" << e.what() << "\n";
         continue;
     }
 
@@ -161,7 +161,7 @@ for(int hour = 0; hour < 24; hour++) {
         int num_tries_counter = 0;
         for (int i = 0; i < 3; ++i) {
             try {
-                influx_db.copyEpitrendToBucket(binary_data);
+                influx_db.copyEpitrendToBucket(binary_data, true);
                 break; 
             } catch (std::exception& e) {
                 std::cout << "Error in copying data to influxDB: " << e.what() << "\n Retrying...\n";

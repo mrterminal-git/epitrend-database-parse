@@ -1,5 +1,14 @@
 #include "InfluxDatabase.hpp"
 
+void CurlHeaders::append(const std::string& header) {
+    headers_ = curl_slist_append(headers_, header.c_str());
+    if (!headers_) {
+        throw std::runtime_error("Failed to append header.");
+    }
+}
+
+//=============================END OF CURLHEADERS CLASS METHODS==============================
+
 InfluxDatabase::InfluxDatabase() : isConnected(false), serverInfo("localhost", 8086, ""){}
 
 InfluxDatabase::InfluxDatabase(const std::string& host, int port, 
@@ -245,30 +254,29 @@ std::string InfluxDatabase::queryData(const std::string& query, bool verbose) {
 }
 
 bool InfluxDatabase::queryData2(std::string& response, const std::string& query) {
-    CURL* curl;
-    CURLcode res;
-    curl = curl_easy_init();
-    if(curl) {
-        std::string url = "http://" + host_ + ":" + std::to_string(port_) + "/api/v2/query?org=" + org_;
-        std::string auth_header = "Authorization: Token " + token_;
-
-        struct curl_slist* headers = NULL;
-        headers = curl_slist_append(headers, "Content-Type: application/vnd.flux");
-        headers = curl_slist_append(headers, auth_header.c_str());
-
-        curl_easy_setopt(curl, CURLOPT_URL, url.c_str());
-        curl_easy_setopt(curl, CURLOPT_HTTPHEADER, headers);
-        curl_easy_setopt(curl, CURLOPT_POSTFIELDS, query.c_str());
-        curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, WriteCallback);
-        curl_easy_setopt(curl, CURLOPT_WRITEDATA, &response);
-
-        res = curl_easy_perform(curl);
-        if(res != CURLE_OK) {
-            curl_easy_cleanup(curl);
-            return -1;
-        }
-        curl_easy_cleanup(curl);
+    CURL* curl = curl_easy_init();
+    if (!curl) {
+        throw std::runtime_error("Failed to initialize cURL.");
     }
+
+    std::string url = "http://" + host_ + ":" + std::to_string(port_) + "/api/v2/query?org=" + org_;
+    CurlHeaders headers;
+    headers.append("Content-Type: application/vnd.flux");
+    headers.append("Authorization: Token " + token_);
+
+    curl_easy_setopt(curl, CURLOPT_URL, url.c_str());
+    curl_easy_setopt(curl, CURLOPT_HTTPHEADER, headers.get());
+    curl_easy_setopt(curl, CURLOPT_POSTFIELDS, query.c_str());
+    curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, WriteCallback);
+    curl_easy_setopt(curl, CURLOPT_WRITEDATA, &response);
+
+    CURLcode res = curl_easy_perform(curl);
+    curl_easy_cleanup(curl);
+
+    if (res != CURLE_OK) {
+        throw std::runtime_error("cURL query failed: " + std::string(curl_easy_strerror(res)));
+    }
+
     return true;
 }
 
@@ -538,22 +546,32 @@ bool InfluxDatabase::copyEpitrendToBucket(EpitrendBinaryData data, bool verbose)
             // Parse the response
             parsed_response = parseQueryResponse(response);
 
-            // Grab all the sensor_id values
-            std::vector<int> sensor_ids;
-            for(std::unordered_map<std::string,std::string>& element : parsed_response) {
-                try {
-                    sensor_ids.push_back(stoi(element["_value"]));
-                }
-                catch (std::exception& e) {
-                    std::cerr << "Error in InfluxDatabase::copyEpitrendToBucket: error parsing sensor_id\n";
-                    throw std::runtime_error("Error in InfluxDatabase::copyEpitrendToBucket: error parsing sensor_id\n");
-                }
-                if(verbose) std::cout << "Found existing sensor_id: " << stoi(element["_value"]) << "\n";
-            }
+            // Check if parse is empty to prevent segmentation faults
+            if (parsed_response.empty()) {
+                // Manually set first sensor id since there no data found within the name-series (ns). New table?
+                if(verbose) std::cerr << "Warning in InfluxDatabase::copyEpitrendToBucket call: "
+                "parsed response is empty due to empty name-series table.\n";
+                valid_sensor_id = 1;
 
-            // Get the next sensor_id
-            valid_sensor_id = *std::max_element(sensor_ids.begin(), sensor_ids.end()) + 1;
-            if(verbose) std::cout << "Next sensor_id available for \"" << name_data_map.first <<"\": " << valid_sensor_id << "\n";
+            } else {
+                // Grab all the sensor_id values
+                std::vector<int> sensor_ids;
+                for(std::unordered_map<std::string,std::string>& element : parsed_response) {
+                    try {
+                        sensor_ids.push_back(stoi(element["_value"]));
+                    }
+                    catch (std::exception& e) {
+                        std::cerr << "Error in InfluxDatabase::copyEpitrendToBucket: error parsing sensor_id\n";
+                        throw std::runtime_error("Error in InfluxDatabase::copyEpitrendToBucket: error parsing sensor_id\n");
+                    }
+                    if(verbose) std::cout << "Found existing sensor_id: " << stoi(element["_value"]) << "\n";
+                }
+
+                // Get the next sensor_id
+                valid_sensor_id = *std::max_element(sensor_ids.begin(), sensor_ids.end()) + 1;
+                if(verbose) std::cout << "Next sensor_id available for \"" << name_data_map.first <<"\": " << valid_sensor_id << "\n";
+
+            }
 
             // Set the ns write query
             ns_write_struct ns_write = 
@@ -568,14 +586,12 @@ bool InfluxDatabase::copyEpitrendToBucket(EpitrendBinaryData data, bool verbose)
             // Write the new sensor_id with the machine and sensor name into ns
             writeBatchData2({ns_write.write_query}, true);
 
-
         } else {
             if(verbose) std::cout << "Entry found for sensor: " << name_data_map.first << "\n";
             
             // Get the sensor_id
             valid_sensor_id = stoi(parsed_response[0]["_value"]);
             if(verbose) std::cout << "Sensor_id: " << valid_sensor_id << "\n";
-
 
         }
 

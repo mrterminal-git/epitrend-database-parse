@@ -7,6 +7,18 @@
 
 #include <curl/curl.h>
 
+// Helper class to properly handle curl headers and prevent memory allocation issues
+class CurlHeaders {
+public:
+    CurlHeaders() : headers_(nullptr) {}
+    ~CurlHeaders() { if (headers_) curl_slist_free_all(headers_); }
+    void append(const std::string& header);
+    struct curl_slist* get() const { return headers_; }
+
+private:
+    struct curl_slist* headers_;
+};
+
 class InfluxDatabase {
 public:
     // Constructors and destructors
