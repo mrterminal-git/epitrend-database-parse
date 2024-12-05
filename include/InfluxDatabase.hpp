@@ -46,7 +46,7 @@ public:
     std::vector<std::unordered_map<std::string,std::string>> parseQueryResponse(std::string& response, bool verbose = false);
 
     // Copying to bucket
-    bool copyEpitrendToBucket(EpitrendBinaryData data);
+    bool copyEpitrendToBucket(EpitrendBinaryData data, bool verbose = false);
 
 private:
     influxdb_cpp::server_info serverInfo;
@@ -68,6 +68,11 @@ private:
     // Internal trim function 
     static std::string trimInternal(const std::string& str);
     
+    // Internal function to escape special characters for influxDB
+    static std::string escapeSpecialChars(const std::string& str);
+
+    // Internal function to convert days from Epoch to precision_ from Unix Epoch
+    long long convertDaysFromEpochToPrecisionFromUnix(double days);
 };
 
 #endif // INFLUXDATABASE_HPP
