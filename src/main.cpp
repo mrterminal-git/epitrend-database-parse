@@ -161,7 +161,7 @@ for(int hour = 0; hour < 24; hour++) {
         int num_tries_counter = 0;
         for (int i = 0; i < 3; ++i) {
             try {
-                influx_db.copyEpitrendToBucket(binary_data, true);
+                influx_db.copyEpitrendToBucket(binary_data, false);
                 break; 
             } catch (std::exception& e) {
                 std::cout << "Error in copying data to influxDB: " << e.what() << "\n Retrying...\n";

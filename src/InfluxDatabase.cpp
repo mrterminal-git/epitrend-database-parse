@@ -584,7 +584,7 @@ bool InfluxDatabase::copyEpitrendToBucket(EpitrendBinaryData data, bool verbose)
             if(verbose) std::cout << "Write query: " << ns_write.write_query << "\n";
 
             // Write the new sensor_id with the machine and sensor name into ns
-            writeBatchData2({ns_write.write_query}, true);
+            writeBatchData2({ns_write.write_query}, verbose);
 
         } else {
             if(verbose) std::cout << "Entry found for sensor: " << name_data_map.first << "\n";
@@ -623,7 +623,7 @@ bool InfluxDatabase::copyEpitrendToBucket(EpitrendBinaryData data, bool verbose)
         // Write the remaining data
         if(batch_data.size() > 0) {
             if(verbose) std::cout << "Writing batch data...\n";
-            writeBatchData2(batch_data, false);
+            writeBatchData2(batch_data, verbose);
         }
 
     }
