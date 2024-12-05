@@ -1,3 +1,35 @@
+/*
+ * main.cpp
+ *
+ * This program is designed to read binary data files from the Epitrend system,
+ * process the data, and insert it into an InfluxDB database. The program iterates
+ * over a specified range of years, months, days, and hours, attempting to read
+ * and parse binary data files for each time period. If a file is found and successfully
+ * parsed, the data is then copied into the InfluxDB database.
+ *
+ * The program uses several helper classes and libraries:
+ * - Common.hpp: Contains common utility functions and definitions.
+ * - FileReader.hpp: Provides functions to read and parse binary data files.
+ * - Config.hpp: Manages configuration settings for the program.
+ * - EpitrendBinaryFormat.hpp: Defines the format of the Epitrend binary data.
+ * - EpitrendBinaryData.hpp: Represents the parsed binary data.
+ * - AzureDatabase.hpp: Provides functions to interact with an Azure SQL database.
+ * - InfluxDatabase.hpp: Provides functions to interact with an InfluxDB database.
+ * - influxdb.hpp: Contains additional InfluxDB-related functions and definitions.
+ * - curl/curl.h: Used for making HTTP requests to the InfluxDB server.
+ *
+ * The program performs the following steps:
+ * 1. Define constants for the InfluxDB connection (organization, host, port, bucket, etc.).
+ * 2. Create an InfluxDB object and check the health of the connection.
+ * 3. Iterate over the specified range of years, months, days, and hours.
+ * 4. For each time period, attempt to read and parse the corresponding binary data file.
+ * 5. If the file is successfully parsed, copy the data into the InfluxDB database.
+ * 6. Log the times when data is successfully inserted into the database.
+ *
+ * Note: The program assumes that the binary data files are named and organized
+ * according to a specific convention based on the year, month, day, and hour.
+ */
+
 #include "Common.hpp"
 #include "FileReader.hpp"
 #include "Config.hpp"
@@ -8,7 +40,8 @@
 #include "influxdb.hpp"
 #include <curl/curl.h>
 
-int main() {
+
+// Define the constants
 const std::string& org = "terminal";
 const std::string& host = "127.0.0.1";
 const int port = 8086;
@@ -18,115 +51,20 @@ const std::string& password = "";
 const std::string& precision = "ms";
 const std::string& token = "E50icKBWaeccyZRwfdYDTtYxm10cHRPp8NRY0mp0upeEDZJC_STQfmJJzoBK9qCPm6mVUR9FhzysNlemzEmsOw==";
 
-// influxdb_cpp::server_info si("127.0.0.1", 
-//     8086, 
-//     bucket, 
-//     "", 
-//     "", 
-//     "",
-//     "E50icKBWaeccyZRwfdYDTtYxm10cHRPp8NRY0mp0upeEDZJC_STQfmJJzoBK9qCPm6mVUR9FhzysNlemzEmsOw==");
-
-// std::string response;
-// std::string query_show_database = "SHOW DATABASES";
-// std::string query_select_all = "SELECT * FROM \"test-bucket\".\"autogen\".\"foo\"";
-
-// int result = influxdb_cpp::query(response, query_select_all, si);
-// if (result != 0) {
-//     std::cerr << "Failed to connect to InfluxDB: " << response << std::endl;
-//     throw std::runtime_error("Failed to connect to InfluxDB: " + response);
-// }
-
-// std::cout << response << "\n";
-
-// // Query with a filter
-// std::string filter = "r._measurement == \"foo\" and r.tag_key == \"tag_value\"";
-// result = influxdb_cpp::query_with_filter(response, target_bucket, target_org, filter, si);
-// if (result != 0) {
-//     std::cerr << "Failed to query InfluxDB with filter" << std::endl;
-//     throw std::runtime_error("Failed to query InfluxDB with filter");
-// }
-
-// std::cout << response << "\n";  
-
-// // influxdb_cpp::builder()
-// //     .meas("foo")
-// //     .field("x", 20)
-// //     .post_http(si);
-
-//-------------------------Section for testing influxDatabase wrapper class-------------------------
+int main() {
 // Create influx object
 InfluxDatabase influx_db(host, port, org, bucket, user, password, precision, token);
 
 // Check the health of the connection
 influx_db.checkConnection(true);
 
-// Writing data into db
-const std::string measurement = "ts";
-const std::string tags = "machine_id=1,part_id=1";
-const std::string fields = "value=199";
-long long timestamp = 1735728000000; // Timestamp for 2024-Nov-01 00:00:00.000 in milliseconds
-long long default_ns_timestamp = 2000000000000;
-
-std::vector<std::string> data_points;
-// data_points.push_back(measurement + ",sensor_id_=0 num=-1.0 2000000000000");
-// data_points.push_back(measurement + ",sensor_id_=2 num=199i 1735728000000");
-
-// data_points.push_back(measurement + ",machine_=init.machine.name.1,sensor_=init.sensor.name.1 sensor_id=\"0\" " + std::to_string(default_ns_timestamp));
-// data_points.push_back(measurement + ",machine_=machine.name.2,sensor_=sensor.name.1 sensor_id=\"2\" " + std::to_string(default_ns_timestamp));
-// data_points.push_back(measurement + ",machine_=machine.name.1,sensor_=sensor.name.2 sensor_id=\"3\" " + std::to_string(default_ns_timestamp));
-// data_points.push_back(measurement + ",machine_=machine.name.2,sensor_=sensor.name.2 sensor_id=\"4\" " + std::to_string(default_ns_timestamp));
-
-// influx_db.writeBatchData2(data_points, true);
-
-//-------------------------Section for testing influxDatabase wrapper class: query-------------------------
-// std::string query = "from(bucket: \"test-bucket\")"
-//   "|> range(start: -100y, stop: 50y)"
-//   "|> filter(fn: (r) => r[\"_measurement\"] == \"ts\")";
-
-// std::string response;
-// influx_db.queryData2(response, query);   
-// std::cout << "Query: " << query << "\n";
-// std::cout << "Response: " << response << "\n";
-
-// std::vector<std::unordered_map<std::string,std::string>> parsed_response = influx_db.parseQueryResponse(response);
-// for(const auto& element : parsed_response){
-//     for (const auto& element_inner : element){ 
-//         std::cout << element_inner.first << "==" << element_inner.second << "||";
-//     }
-//     std::cout << "\n";
-// }
-
-// // std::string bucket = "test-bucket";
-// std::string sensor_name = "sensor.name.1";
-// std::string machine_name = "machine.name.1";
-// response = "";
-// query = "from(bucket: \"" + bucket + "\") "
-//     "|> range(start: -50y, stop: 100y)"
-//     "|> filter(fn: (r) => r[\"_measurement\"] == \"ns\")" 
-//     "|> filter(fn: (r) => r[\"sensor_\"] == \"" + sensor_name + "\")"
-//     "|> filter(fn: (r) => r[\"machine_\"] == \"" + machine_name + "\")";
-// influx_db.queryData2(response, query);   
-// std::cout << "Query: " << query << "\n";
-// std::cout << "Response: " << response << "\n";
-
-// parsed_response = influx_db.parseQueryResponse(response);
-// for(const auto& element : parsed_response){
-//     for (const auto& element_inner : element){ 
-//         std::cout << element_inner.first << "==" << element_inner.second << "||";
-//     }
-//     std::cout << "\n";
-// }
-
-//-------------------------Section for testing influxDatabase wrapper class: copy EpitrendData to bucket-------------------------
-
 EpitrendBinaryData binary_data;
 std::ofstream epitrend_finished_file(Config::getOutputDir() + "times_inserted_into_SQL_server.txt", std::ios_base::app);
 std::string times_finished_string;
-int year;
-year = 2024;
+for(int year = 2020; year < 2026; year++){
 for(int month = 1; month < 13; month++) {
 for(int day = 1; day < 32; day++) {
-for(int hour = 0; hour < 24; hour++) {
+for(int hour = 0; hour < 25; hour++) {
     try {
         // Parse the Epitrend binary data file
         FileReader::parseEpitrendBinaryDataFile(binary_data,year,month,day,hour,false);
@@ -190,6 +128,7 @@ for(int hour = 0; hour < 24; hour++) {
         epitrend_finished_file << times_finished_string;
         times_finished_string = "";
     }
+}
 }
 }
 }
