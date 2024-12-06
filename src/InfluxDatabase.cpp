@@ -435,7 +435,7 @@ long long InfluxDatabase::convertDaysFromEpochToPrecisionFromUnix(double days) {
 
 bool InfluxDatabase::copyEpitrendToBucket(EpitrendBinaryData data, bool verbose){
     // Batch size
-    const int batchSize = 5000;
+    const int batchSize = 1000;
     const std::string epitrend_machine_name = "GEN200";
 
     // Prepare time-series (ts) query write statement e.g.
