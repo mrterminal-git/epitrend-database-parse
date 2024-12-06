@@ -42,14 +42,14 @@
 
 
 // Define the constants
-const std::string& org = "terminal";
+const std::string& org = "au-eng-mbe";
 const std::string& host = "127.0.0.1";
 const int port = 8086;
 const std::string& bucket = "test-bucket";
 const std::string& user = "";
 const std::string& password = "";
 const std::string& precision = "ms";
-const std::string& token = "E50icKBWaeccyZRwfdYDTtYxm10cHRPp8NRY0mp0upeEDZJC_STQfmJJzoBK9qCPm6mVUR9FhzysNlemzEmsOw==";
+const std::string& token = "eBRbswZGW5S0DAbZh581vUGgulv_LWjjOoNnjFoymJREBl5XiBHodC68w7EHPq_ufvjdy0j6HTvMwlZqrHoymA==";
 
 int main() {
 // Create influx object
@@ -68,6 +68,7 @@ for(int hour = 0; hour < 25; hour++) {
     try {
         // Parse the Epitrend binary data file
         FileReader::parseEpitrendBinaryDataFile(binary_data,year,month,day,hour,false);
+        std::cout << "Parsed Epitrend data file for: " << year << "," << month << "," << day << "," << hour << "\n";
 
     } catch ( std::exception& e) {
         // Catching errors due to times that exist
@@ -97,17 +98,21 @@ for(int hour = 0; hour < 25; hour++) {
 
         // Copy all data into influxDB table
         int num_tries_counter = 0;
-        for (int i = 0; i < 3; ++i) {
+        for (int i = 0; i < 100; ++i) {
             try {
                 influx_db.copyEpitrendToBucket(binary_data, false);
                 break; 
             } catch (std::exception& e) {
                 std::cout << "Error in copying data to influxDB: " << e.what() << "\n Retrying...\n";
                 num_tries_counter++;
-                if (num_tries_counter == 3) {
+                if (num_tries_counter == 100) {
                     std::cout << "Failed to copy data to influxDB after 3 tries\n";
                     return 0;
                 }
+
+                // Pause for 10 seconds
+                std::this_thread::sleep_for(std::chrono::seconds(10));
+
             }
         }
         

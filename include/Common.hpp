@@ -20,6 +20,8 @@
 #include <locale>
 #include <sstream>
 #include <memory>
+#include <thread>
+#include <chrono>
 
 #include "Config.hpp"
 
