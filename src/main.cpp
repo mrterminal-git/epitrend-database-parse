@@ -40,16 +40,23 @@
 #include "influxdb.hpp"
 #include <curl/curl.h>
 
+std::string time_now() {
+    auto now = std::chrono::system_clock::now();
+    std::time_t now_time = std::chrono::system_clock::to_time_t(now);
+    std::string time_str = std::ctime(&now_time);
+    time_str.pop_back();
+    return time_str + "|| ";
+}
 
 // Define the constants
-const std::string& org = "au-eng-mbe";
+const std::string& org = "au-mbe-eng";
 const std::string& host = "127.0.0.1";
 const int port = 8086;
-const std::string& bucket = "test-bucket";
+const std::string& bucket = "MBE_BMS";
 const std::string& user = "";
 const std::string& password = "";
 const std::string& precision = "ms";
-const std::string& token = "eBRbswZGW5S0DAbZh581vUGgulv_LWjjOoNnjFoymJREBl5XiBHodC68w7EHPq_ufvjdy0j6HTvMwlZqrHoymA==";
+const std::string& token = "142ce8c4d871f807e6f8c3c264afcb5588d7c82ecaad305d8fde09f3f5dec642";
 
 int main() {
 // Create influx object
@@ -68,7 +75,7 @@ for(int hour = 0; hour < 25; hour++) {
     try {
         // Parse the Epitrend binary data file
         FileReader::parseEpitrendBinaryDataFile(binary_data,year,month,day,hour,false);
-        std::cout << "Parsed Epitrend data file for: " << year << "," << month << "," << day << "," << hour << "\n";
+        std::cout << time_now() << "Parsed Epitrend data file for: " << year << "," << month << "," << day << "," << hour << "\n";
 
     } catch ( std::exception& e) {
         // Catching errors due to times that exist
@@ -80,9 +87,9 @@ for(int hour = 0; hour < 25; hour++) {
     times_finished_string += std::to_string(year) + "," + std::to_string(month) + "," + std::to_string(day) + std::to_string(hour) + "\n";
 
     // Check the current size of the epitrend binary data object
-    std::cout << "Current size of EpitrendBinaryData object: " << binary_data.getByteSize() << "\n";
+    std::cout << time_now() << "Current size of EpitrendBinaryData object: " << binary_data.getByteSize() << "\n";
     if (binary_data.getByteSize() > 0.1 * pow(10.0, 6.0) ) { // Limit INSERTS to ~10 mb packs
-        std::cout << "Curret epitrend data object exceeded size limit -> inserting data into SQL DB and flushing object...\n";
+        std::cout << time_now() << "Curret epitrend data object exceeded size limit -> inserting data into SQL DB and flushing object...\n";
         
         // Insert data into SQL and flush current epitrend data
         binary_data.printFileAllTimeSeriesData("temp.txt");
@@ -103,10 +110,10 @@ for(int hour = 0; hour < 25; hour++) {
                 influx_db.copyEpitrendToBucket(binary_data, false);
                 break; 
             } catch (std::exception& e) {
-                std::cout << "Error in copying data to influxDB: " << e.what() << "\n Retrying...\n";
+                std::cout << time_now() << "Error in copying data to influxDB: " << e.what() << "\n Retrying...\n";
                 num_tries_counter++;
                 if (num_tries_counter == 100) {
-                    std::cout << "Failed to copy data to influxDB after 3 tries\n";
+                    std::cout << time_now() << "Failed to copy data to influxDB after 3 tries\n";
                     return 0;
                 }
 
