@@ -48,51 +48,28 @@ std::string time_now() {
     return time_str + "|| ";
 }
 
-// Define the constants
-const std::string& org = "au-mbe-eng";
-const std::string& host = "127.0.0.1";
-const int port = 8086;
-const std::string& bucket = "MBE_BMS";
-const std::string& user = "";
-const std::string& password = "";
-const std::string& precision = "ms";
-const std::string& token = "142ce8c4d871f807e6f8c3c264afcb5588d7c82ecaad305d8fde09f3f5dec642";
-
-int main() {
-// Create influx object
-InfluxDatabase influx_db(host, port, org, bucket, user, password, precision, token);
-
-// Check the health of the connection
-influx_db.checkConnection(true);
-
-EpitrendBinaryData binary_data;
-std::ofstream epitrend_finished_file(Config::getOutputDir() + "times_inserted_into_SQL_server.txt", std::ios_base::app);
-std::string times_finished_string;
-for(int year = 2020; year < 2026; year++){
-for(int month = 1; month < 13; month++) {
-for(int day = 1; day < 32; day++) {
-for(int hour = 0; hour < 25; hour++) {
+int copyEpitrendDataToInflux(InfluxDatabase influx_db, 
+EpitrendBinaryData& binary_data, 
+std::string GM, 
+int year, 
+int month, 
+int day, 
+int hour) {
     try {
         // Parse the Epitrend binary data file
-        FileReader::parseEpitrendBinaryDataFile(binary_data,year,month,day,hour,false);
+        FileReader::parseEpitrendBinaryDataFile(binary_data, GM, year,month,day,hour,false);
         std::cout << time_now() << "Parsed Epitrend data file for: " << year << "," << month << "," << day << "," << hour << "\n";
 
     } catch ( std::exception& e) {
         // Catching errors due to times that exist
         // std::cout << "No Epitrend data file found for: " << year << "," << month << "," << day << "," << hour << "\n" << e.what() << "\n";
-        continue;
+        return 0;
     }
-
-    // Log the parsed file
-    times_finished_string += std::to_string(year) + "," + std::to_string(month) + "," + std::to_string(day) + std::to_string(hour) + "\n";
 
     // Check the current size of the epitrend binary data object
     std::cout << time_now() << "Current size of EpitrendBinaryData object: " << binary_data.getByteSize() << "\n";
     if (binary_data.getByteSize() > 0.1 * pow(10.0, 6.0) ) { // Limit INSERTS to ~10 mb packs
         std::cout << time_now() << "Curret epitrend data object exceeded size limit -> inserting data into SQL DB and flushing object...\n";
-        
-        // Insert data into SQL and flush current epitrend data
-        binary_data.printFileAllTimeSeriesData("temp.txt");
 
         // ===================INFLUXDB VERSION===================
         // CHECK IF PART NAME IS IN NS TABLE
@@ -114,7 +91,7 @@ for(int hour = 0; hour < 25; hour++) {
                 num_tries_counter++;
                 if (num_tries_counter == 100) {
                     std::cout << time_now() << "Failed to copy data to influxDB after 3 tries\n";
-                    return 0;
+                    return -1;
                 }
 
                 // Pause for 10 seconds
@@ -135,10 +112,42 @@ for(int hour = 0; hour < 25; hour++) {
         
         // Flush the current epitrend data object
         binary_data.clear();
-        
-        // Insert the completed times into log and flush
-        epitrend_finished_file << times_finished_string;
-        times_finished_string = "";
+    }
+    return 1;
+}
+
+// Define the constants
+const std::string& org = "au-mbe-eng";
+const std::string& host = "127.0.0.1";
+const int port = 8086;
+const std::string& bucket = "MBE_BMS";
+const std::string& user = "";
+const std::string& password = "";
+const std::string& precision = "ms";
+const std::string& token = "142ce8c4d871f807e6f8c3c264afcb5588d7c82ecaad305d8fde09f3f5dec642";
+
+int main() {
+// Create influx object
+InfluxDatabase influx_db(host, port, org, bucket, user, password, precision, token);
+
+// Check the health of the connection
+influx_db.checkConnection(true);
+
+EpitrendBinaryData binary_data;
+for(int year = 2020; year < 3000; year++){
+for(int month = 12; month > 0; --month) {
+for(int day = 31; day > 1; --day) {
+for(int hour = 24; hour > -1; --hour) {
+    std::cout << time_now() << "Processing data for: " << year << "," << month << "," << day << "," << hour << "\n";
+    
+    const auto copy_result_GM1 = copyEpitrendDataToInflux(influx_db, binary_data, "GM1", year, month, day, hour);
+    const auto copy_result_GM2 = copyEpitrendDataToInflux(influx_db, binary_data, "GM2", year, month, day, hour);
+    if (copy_result_GM1 < 0 || copy_result_GM2 < 0)
+    {
+        std::cout << time_now() << "Error in copying data to influxDB\n";
+        return -1;
+    } else if (copy_result_GM1 == 0 || copy_result_GM2 == 0) {
+        std::cout << time_now() << "No Epitrend data file found for: " << year << "," << month << "," << day << "," << hour << "\n";
     }
 }
 }

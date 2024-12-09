@@ -13,6 +13,7 @@ public:
 
     // Parse the Epitrend binary format file
     static EpitrendBinaryFormat parseEpitrendBinaryFormatFile(
+        std::string GM,
         int year, 
         int month, 
         int day, 
@@ -23,6 +24,7 @@ public:
     // Parse the Epitrend binary data file
     static void parseEpitrendBinaryDataFile(
         EpitrendBinaryData& binary_data,
+        std::string GM,
         int year,
         int month,
         int day,

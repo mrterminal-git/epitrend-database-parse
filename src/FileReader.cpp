@@ -11,6 +11,7 @@ std::string FileReader::trimInternal(const std::string& str) {
 
 // Parse the Epitrend binary format file
 EpitrendBinaryFormat FileReader::parseEpitrendBinaryFormatFile(
+    std::string GM,
     int year, 
     int month, 
     int day, 
@@ -30,7 +31,7 @@ EpitrendBinaryFormat FileReader::parseEpitrendBinaryFormatFile(
 
     // Construct the file path dynamically
     std::ostringstream oss;
-    oss << Config::getDataDir()
+    oss << Config::getDataDir() << GM << " Molly/"
         << std::setfill('0') << year << "/"
         << std::setw(2) << month << "-" << MONTH_NAMES[month - 1] << "/"
         << std::setw(2) << day << "day-" << std::setw(2) << hour << "hr.txt";
@@ -155,6 +156,7 @@ EpitrendBinaryFormat FileReader::parseEpitrendBinaryFormatFile(
 // Parse the Epitrend binary data file
 void FileReader::parseEpitrendBinaryDataFile(
     EpitrendBinaryData& binary_data,
+    std::string GM,
     int year,
     int month,
     int day,
@@ -169,11 +171,11 @@ void FileReader::parseEpitrendBinaryDataFile(
 
     // Parse the Epitrend binary format object
     EpitrendBinaryFormat binary_format = 
-        FileReader::parseEpitrendBinaryFormatFile(year, month, day, hour, verbose);
+        FileReader::parseEpitrendBinaryFormatFile(GM, year, month, day, hour, verbose);
 
     // Construct the file path dynamically
     std::ostringstream oss;
-    oss << Config::getDataDir()
+    oss << Config::getDataDir() << GM << " Molly/"
         << std::setfill('0') << year << "/"
         << std::setw(2) << month << "-" << MONTH_NAMES[month - 1] << "/"
         << std::setw(2) << day << "day-" << std::setw(2) << hour << "hr-binary.txt";
