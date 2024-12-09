@@ -629,3 +629,196 @@ bool InfluxDatabase::copyEpitrendToBucket(EpitrendBinaryData data, bool verbose)
     }
     return true;
 }
+
+bool InfluxDatabase::copyEpitrendToBucket2(EpitrendBinaryData data, bool verbose){
+    // Batch size
+    const int batchSize = 1000;
+    const std::string epitrend_machine_name = "GEN200";
+
+    // Prepare time-series (ts) query write statement e.g.
+    //measurement + ",sensor_id_=1 num=299i 1735728000000";
+    struct ts_write_struct {
+        std::string sensor_id;
+        std::string num;  // MUST BE A DECIMAL
+        std::string timestamp;
+        std::string write_query;
+        void set_write_query(){write_query ="ts,sensor_id_=" + 
+            sensor_id + " num=" + 
+            num + " " + timestamp;
+        }
+    };
+
+    // Prepare name-series (ns) query write statement e.g.
+    //measurement + ",machine_=\"machine.name.2\",sensor_=\"sensor.name.2\" sensor_id=\"4\" " + std::to_string(default_ns_timestamp);
+    struct ns_write_struct {
+        std::string machine_name;
+        std::string sensor_name;
+        std::string sensor_id;
+        std::string default_timestamp = "2000000000000";
+        std::string write_query;
+        void set_write_query(){write_query = "ns,machine_=" + escapeSpecialChars(machine_name) + 
+            ",sensor_=" + escapeSpecialChars(sensor_name) + 
+            " sensor_id=\"" + sensor_id + 
+            "\" " + default_timestamp;
+        }
+    };
+
+    // Prepare name-series (ns) query read statement
+    //     "from(bucket: \"test-bucket\")"
+    //   "|> range(start: -100y, stop: 50y)"
+    //   "|> filter(fn: (r) => r[\"_measurement\"] == \"ns\")"
+    ;
+    struct ns_read_struct {
+        std::string bucket;
+        std::string machine_name;
+        std::string sensor_name;
+        std::string read_query;
+        void set_read_query(){read_query = "from(bucket: \"" + bucket + "\") "
+            "|> range(start: -50y, stop: 100y)"
+            "|> filter(fn: (r) => r[\"_measurement\"] == \"ns\")" 
+            "|> filter(fn: (r) => r[\"sensor_\"] == \"" + sensor_name + "\")"
+            "|> filter(fn: (r) => r[\"machine_\"] == \"" + machine_name + "\")";
+        }
+    };
+
+    // Prepare name-series (ns) query read all data statement
+    struct ns_read_all_struct {
+        std::string bucket;
+        std::string read_query;
+        void set_read_query(){read_query = "from(bucket: \"" + bucket + "\") "
+            "|> range(start: -50y, stop: 100y)"
+            "|> filter(fn: (r) => r[\"_measurement\"] == \"ns\")";
+        }
+    };
+
+    // Set the ns read all data query
+    ns_read_all_struct ns_read_all = {.bucket = bucket_};
+    ns_read_all.set_read_query();
+
+    // Read the ns table for all data
+    std::string response;
+    response = "";
+    queryData2(response, ns_read_all.read_query);
+
+    // Parse the response
+    std::vector<std::unordered_map<std::string,std::string>> parsed_response = parseQueryResponse(response);
+
+    // Cache all the sensor-name and sensor-id pairs that exist in the ns table
+    std::unordered_map<std::string, std::string> sensor_names_to_ids;
+    for(const auto& element : parsed_response) {
+        // Check sensor_ and sensor_id_ keys exist (ns table should contain these keys)
+        if(element.find("sensor_") == element.end() || element.find("_value") == element.end()) {
+            std::cerr << "Error in InfluxDatabase::copyEpitrendToBucket2 call: "
+            "sensor_ or sensor_id key not found in ns table\n";
+            throw std::runtime_error("Error in InfluxDatabase::copyEpitrendToBucket2 call: "
+            "sensor_ or sensor_id key not found in ns table\n");
+        }
+
+        // Cache the sensor-name and sensor-id pairs
+        sensor_names_to_ids[element.at("sensor_")] = element.at("_value");
+        //std::cout << "Cached sensor-name: " << element.at("sensor_") << " with sensor-id: " << element.at("_value") << "\n";
+    }
+
+    // Loop through all data
+    std::unordered_map<std::string, std::unordered_map<double,double>> raw_data = data.getAllTimeSeriesData();
+    for(const auto& name_data_map : raw_data) {
+        // CHECK IF PART NAME IS IN NS TABLE
+        // IF IT ISN'T
+            // ADD ENTRY OF MACHINE NAME AND PART NAME INTO TABLE
+            // GET NEW SENSOR_ID FOR NAME AND ALSO INTO TABLE
+        // IF IT IS
+            // GET THE SENSOR_ID
+        // ENTER ALL ASSOCIATED DATA INTO TS TABLE WITH ASSOCIATE SENSOR ID
+        
+        if(verbose)
+            std::cout << "--------------------\n Current name: " <<
+            name_data_map.first << "\n";
+
+        // Prepare the sensor id associated with the current sensor name
+        int valid_sensor_id = -1;
+
+        // Check if sensor_ name exists in the ns table
+        int found_sensor_name_in_ns = 
+            !(sensor_names_to_ids.find(name_data_map.first) == sensor_names_to_ids.end());
+
+        // Check if data is found
+        if(!found_sensor_name_in_ns) {
+            if(verbose) std::cout << "No entry found for sensor: " << name_data_map.first << "\n";
+
+            // Check if cache is empty to prevent segmentation faults
+            if (sensor_names_to_ids.empty()) {
+                // Manually set first sensor id since there no data found within the name-series (ns). New table?
+                if(verbose) std::cerr << "Warning in InfluxDatabase::copyEpitrendToBucket call: "
+                "no data found in ns table.\n";
+                valid_sensor_id = 1;
+
+            } else {
+                // Get the next sensor_id
+                valid_sensor_id = std::stoi(std::max_element(sensor_names_to_ids.begin(), sensor_names_to_ids.end(),
+                    [](const auto& a, const auto& b) {
+                        return std::stoi(a.second) < std::stoi(b.second);
+                    })->second) + 1;
+
+                if(verbose) std::cout << "Next sensor_id available for \"" << name_data_map.first <<"\": " << valid_sensor_id << "\n";
+
+            }
+
+            // Set the ns write query
+            ns_write_struct ns_write = 
+            {
+                .machine_name = epitrend_machine_name,
+                .sensor_name = name_data_map.first,
+                .sensor_id = std::to_string(valid_sensor_id)
+            };
+            ns_write.set_write_query();
+            if(verbose) std::cout << "Write query: " << ns_write.write_query << "\n";
+
+            // Write the new sensor_id with the machine and sensor name into ns
+            writeBatchData2({ns_write.write_query}, verbose);
+
+            // Update the cache
+            sensor_names_to_ids[name_data_map.first] = std::to_string(valid_sensor_id);
+
+        } else {
+            if(verbose) std::cout << "Entry found for sensor: " << name_data_map.first << "\n";
+
+            // Get the sensor_id
+            valid_sensor_id = std::stoi(sensor_names_to_ids.at(name_data_map.first));
+            if(verbose) std::cout << "Sensor_id: " << valid_sensor_id << "\n";
+
+        }
+
+        // Prepare ts query write statement
+        ts_write_struct ts_write = 
+        {
+            .sensor_id = std::to_string(valid_sensor_id),
+        };
+
+        // Loop through all the time-value pairs for the current name
+        std::vector<std::string> batch_data;
+        for (const auto& time_value : name_data_map.second) {
+            // Prepare the ts write query
+            ts_write.num = std::to_string(time_value.second);
+            ts_write.timestamp = std::to_string(convertDaysFromEpochToPrecisionFromUnix(time_value.first));
+            ts_write.set_write_query();
+            
+            // Batch the data
+            batch_data.push_back(ts_write.write_query);
+
+            if(batch_data.size() >= batchSize) {
+                // Write the time-value pair to the ts table
+                if(verbose) std::cout << "Writing batch data...\n";
+                writeBatchData2(batch_data, false);
+                batch_data.clear();
+            }
+        }
+        
+        // Write the remaining data
+        if(batch_data.size() > 0) {
+            if(verbose) std::cout << "Writing batch data...\n";
+            writeBatchData2(batch_data, verbose);
+        }
+
+    }
+    return true;
+}

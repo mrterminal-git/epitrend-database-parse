@@ -58,18 +58,18 @@ int hour) {
     try {
         // Parse the Epitrend binary data file
         FileReader::parseEpitrendBinaryDataFile(binary_data, GM, year,month,day,hour,false);
-        std::cout << time_now() << "Parsed Epitrend data file for: " << year << "," << month << "," << day << "," << hour << "\n";
+        std::cout << time_now() << "Parsed " + GM + " Epitrend data file for: " << year << "," << month << "," << day << "," << hour << "\n";
 
     } catch ( std::exception& e) {
         // Catching errors due to times that exist
-        // std::cout << "No Epitrend data file found for: " << year << "," << month << "," << day << "," << hour << "\n" << e.what() << "\n";
+        std::cout << time_now() << "No " + GM + " Epitrend data file found for: " << year << "," << month << "," << day << "," << hour << "\n" << e.what() << "\n";
         return 0;
     }
 
     // Check the current size of the epitrend binary data object
-    std::cout << time_now() << "Current size of EpitrendBinaryData object: " << binary_data.getByteSize() << "\n";
+    std::cout << time_now() << "Current size of " + GM + " EpitrendBinaryData object: " << binary_data.getByteSize() << "\n";
     if (binary_data.getByteSize() > 0.1 * pow(10.0, 6.0) ) { // Limit INSERTS to ~10 mb packs
-        std::cout << time_now() << "Curret epitrend data object exceeded size limit -> inserting data into SQL DB and flushing object...\n";
+        std::cout << time_now() << "Curret " + GM + " epitrend data object exceeded size limit -> inserting data into SQL DB and flushing object...\n";
 
         // ===================INFLUXDB VERSION===================
         // CHECK IF PART NAME IS IN NS TABLE
@@ -84,13 +84,13 @@ int hour) {
         int num_tries_counter = 0;
         for (int i = 0; i < 100; ++i) {
             try {
-                influx_db.copyEpitrendToBucket(binary_data, false);
+                influx_db.copyEpitrendToBucket2(binary_data, false);
                 break; 
             } catch (std::exception& e) {
-                std::cout << time_now() << "Error in copying data to influxDB: " << e.what() << "\n Retrying...\n";
+                std::cout << time_now() << "Error in copying " + GM + " data to influxDB: " << e.what() << "\n Retrying...\n";
                 num_tries_counter++;
                 if (num_tries_counter == 100) {
-                    std::cout << time_now() << "Failed to copy data to influxDB after 3 tries\n";
+                    std::cout << time_now() << "Failed to copy " + GM + " data to influxDB after 3 tries\n";
                     return -1;
                 }
 
@@ -106,7 +106,7 @@ int hour) {
         for(auto element : binary_data.getAllTimeSeriesData()){
             db_entry_count += element.second.size();
         }
-        std::cout << "Number of entries in the database: " << db_entry_count << "\n";
+        std::cout << "Number of " + GM + " entries in the database: " << db_entry_count << "\n";
         std::cout << "Approximate db size increased: " << db_entry_count * 100 << 
         " bytes" << " = " << db_entry_count * 100 / pow(10.0, 6.0) << " MB" << "\n";
         
@@ -133,21 +133,19 @@ InfluxDatabase influx_db(host, port, org, bucket, user, password, precision, tok
 // Check the health of the connection
 influx_db.checkConnection(true);
 
-EpitrendBinaryData binary_data;
-for(int year = 2020; year < 3000; year++){
+EpitrendBinaryData binary_data_GM1, binary_data_GM2;
+for(int year = 2024; year < 3000; year++){
 for(int month = 12; month > 0; --month) {
 for(int day = 31; day > 1; --day) {
 for(int hour = 24; hour > -1; --hour) {
     std::cout << time_now() << "Processing data for: " << year << "," << month << "," << day << "," << hour << "\n";
     
-    const auto copy_result_GM1 = copyEpitrendDataToInflux(influx_db, binary_data, "GM1", year, month, day, hour);
-    const auto copy_result_GM2 = copyEpitrendDataToInflux(influx_db, binary_data, "GM2", year, month, day, hour);
+    const auto copy_result_GM1 = copyEpitrendDataToInflux(influx_db, binary_data_GM1, "GM1", year, month, day, hour);
+    const auto copy_result_GM2 = copyEpitrendDataToInflux(influx_db, binary_data_GM2, "GM2", year, month, day, hour);
     if (copy_result_GM1 < 0 || copy_result_GM2 < 0)
     {
         std::cout << time_now() << "Error in copying data to influxDB\n";
         return -1;
-    } else if (copy_result_GM1 == 0 || copy_result_GM2 == 0) {
-        std::cout << time_now() << "No Epitrend data file found for: " << year << "," << month << "," << day << "," << hour << "\n";
     }
 }
 }

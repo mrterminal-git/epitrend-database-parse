@@ -130,7 +130,10 @@
     "forward_list": "cpp",
     "ratio": "cpp",
     "unordered_set": "cpp",
-    "thread": "cpp"
+    "thread": "cpp",
+    "condition_variable": "cpp",
+    "future": "cpp",
+    "mutex": "cpp"
   },
   "C_Cpp.errorSquiggles": "enabled"
 }

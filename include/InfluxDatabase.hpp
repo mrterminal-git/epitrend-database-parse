@@ -59,6 +59,7 @@ public:
 
     // Copying to bucket
     bool copyEpitrendToBucket(EpitrendBinaryData data, bool verbose = false);
+    bool copyEpitrendToBucket2(EpitrendBinaryData data, bool verbose = false);
 
 private:
     influxdb_cpp::server_info serverInfo;
