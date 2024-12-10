@@ -632,7 +632,11 @@ bool InfluxDatabase::copyEpitrendToBucket(EpitrendBinaryData data, bool verbose)
 
 bool InfluxDatabase::copyEpitrendToBucket2(EpitrendBinaryData data, bool verbose){
     // Batch size
-    const int batchSize = 3000;
+    const int batchSize = 5000;
+
+    // Number of retry calls
+    const int retryCalls = 5;
+
     const std::string epitrend_machine_name = "GEN200";
 
     // Prepare time-series (ts) query write statement e.g.
@@ -721,6 +725,7 @@ bool InfluxDatabase::copyEpitrendToBucket2(EpitrendBinaryData data, bool verbose
 
     // Loop through all data
     std::unordered_map<std::string, std::unordered_map<double,double>> raw_data = data.getAllTimeSeriesData();
+    std::vector<std::string> batch_data;
     for(const auto& name_data_map : raw_data) {
         // CHECK IF PART NAME IS IN NS TABLE
         // IF IT ISN'T
@@ -795,7 +800,6 @@ bool InfluxDatabase::copyEpitrendToBucket2(EpitrendBinaryData data, bool verbose
         };
 
         // Loop through all the time-value pairs for the current name
-        std::vector<std::string> batch_data;
         for (const auto& time_value : name_data_map.second) {
             // Prepare the ts write query
             ts_write.num = std::to_string(time_value.second);
@@ -808,17 +812,53 @@ bool InfluxDatabase::copyEpitrendToBucket2(EpitrendBinaryData data, bool verbose
             if(batch_data.size() >= batchSize) {
                 // Write the time-value pair to the ts table
                 if(verbose) std::cout << "Writing batch data...\n";
-                writeBatchData2(batch_data, false);
+                
+                for(int i = 0; i < retryCalls; i++){
+                    try {
+                        writeBatchData2(batch_data, false);
+                        break;
+                    } catch (std::exception& e) {
+                        if(verbose) std::cerr << "Error in InfluxDatabase::copyEpitrendToBucket2 call: error writing to ts table\n";
+                        if(verbose) std::cerr << "Error message: " << e.what() << "\n";
+                        if(verbose) std::cerr << "Retrying...\n";
+                        if (i == 9) {
+                            if(verbose) std::cerr << "Error in InfluxDatabase::copyEpitrendToBucket2 call: failed to write to ts table after " << retryCalls << " attempts\n";
+                            throw std::runtime_error("Error in InfluxDatabase::copyEpitrendToBucket2 call: failed to write to ts table\n");
+                        }
+                        std::this_thread::sleep_for(std::chrono::seconds(1));
+
+                    }
+                }
+                // writeBatchData2(batch_data, false);
                 batch_data.clear();
             }
         }
         
-        // Write the remaining data
-        if(batch_data.size() > 0) {
-            if(verbose) std::cout << "Writing batch data...\n";
-            writeBatchData2(batch_data, verbose);
-        }
-
     }
+
+    // Write the remaining data
+    if(batch_data.size() > 0) {
+        if(verbose) std::cout << "Writing batch data...\n";
+
+        for(int i = 0; i < retryCalls; i++){
+            try {
+                writeBatchData2(batch_data, false);
+                break;
+            } catch (std::exception& e) {
+                if(verbose) std::cerr << "Error in InfluxDatabase::copyEpitrendToBucket2 call: error writing remaining data to ts table\n";
+                if(verbose) std::cerr << "Error message: " << e.what() << "\n";
+                if(verbose) std::cerr << "Batch size is: " << batch_data.size() << "\n";
+                if(verbose) std::cerr << "Retrying...\n";
+                if (i == 9) {
+                    if(verbose) std::cerr << "Error in InfluxDatabase::copyEpitrendToBucket2 call: failed to write to ts table after " << retryCalls << " attempts\n";
+                    throw std::runtime_error("Error in InfluxDatabase::copyEpitrendToBucket2 call: failed to write to ts table\n");
+                }
+                std::this_thread::sleep_for(std::chrono::seconds(1));
+
+            }
+        }
+        // writeBatchData2(batch_data, verbose);
+    }
+
     return true;
 }
