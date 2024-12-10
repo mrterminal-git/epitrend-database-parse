@@ -22,9 +22,14 @@ public:
     // Utility Methods
     void printAllTimeSeriesData();
     void printFileAllTimeSeriesData(const std::string& filename);
+    bool is_empty();
 
     // Clear all contents of time-series data
     void clear();
+
+    // Difference between two EpitrendBinaryData objects
+    EpitrendBinaryData difference(EpitrendBinaryData& other) const;
+
 
 private:
     std::unordered_map<std::string, std::unordered_map<double,double>> allTimeSeriesData;

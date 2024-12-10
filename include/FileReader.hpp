@@ -32,6 +32,26 @@ public:
         bool verbose
     );
 
+    // Parse the server Epitrend binary format file
+    static EpitrendBinaryFormat parseServerEpitrendBinaryFormatFile(
+        std::string GM,
+        int year, 
+        int month, 
+        int day, 
+        int hour, 
+        bool verbose
+    );
+   
+    // Parse the server Epitrend binary data file
+    static void parseServerEpitrendBinaryDataFile(
+        EpitrendBinaryData& binary_data,
+        std::string GM,
+        int year,
+        int month,
+        int day,
+        int hour,
+        bool verbose
+    );
 
 private:
 	// Internal use of trimming

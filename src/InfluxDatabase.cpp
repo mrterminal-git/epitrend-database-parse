@@ -632,7 +632,7 @@ bool InfluxDatabase::copyEpitrendToBucket(EpitrendBinaryData data, bool verbose)
 
 bool InfluxDatabase::copyEpitrendToBucket2(EpitrendBinaryData data, bool verbose){
     // Batch size
-    const int batchSize = 1000;
+    const int batchSize = 3000;
     const std::string epitrend_machine_name = "GEN200";
 
     // Prepare time-series (ts) query write statement e.g.

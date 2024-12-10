@@ -66,8 +66,32 @@ void EpitrendBinaryData::printFileAllTimeSeriesData(const std::string& filename)
     }
 }
 
+bool EpitrendBinaryData::is_empty(){
+    return allTimeSeriesData.empty();
+}
+
 //
 void EpitrendBinaryData::clear(){
     allTimeSeriesData.clear();
     byteSize = 0;
+}
+
+// Return the difference between two EpitrendBinaryData objects
+EpitrendBinaryData EpitrendBinaryData::difference(EpitrendBinaryData& other) const{
+    std::unordered_map<std::string, std::unordered_map<double,double>> other_data = other.getAllTimeSeriesData();
+    EpitrendBinaryData diff_data;
+    for(auto element : allTimeSeriesData){
+        std::string name = element.first;
+        std::unordered_map<double,double> time_series = element.second;
+        for(auto inner_element : time_series){
+            double time = inner_element.first;
+            double value = inner_element.second;
+            if(other_data.find(name) == other_data.end() || other_data[name].find(time) == other_data[name].end()){
+                diff_data.addDataItem(name, std::make_pair(time, value));
+            }
+        }
+    }
+
+    return diff_data;
+    
 }

@@ -127,29 +127,142 @@ const std::string& precision = "ms";
 const std::string& token = "142ce8c4d871f807e6f8c3c264afcb5588d7c82ecaad305d8fde09f3f5dec642";
 
 int main() {
-// Create influx object
+// // Create influx object
+// InfluxDatabase influx_db(host, port, org, bucket, user, password, precision, token);
+
+// // Check the health of the connection
+// influx_db.checkConnection(true);
+
+// EpitrendBinaryData binary_data_GM1, binary_data_GM2;
+// for(int year = 2024; year < 3000; year++){
+// for(int month = 12; month > 0; --month) {
+// for(int day = 31; day > 1; --day) {
+// for(int hour = 24; hour > -1; --hour) {
+//     std::cout << time_now() << "Processing data for: " << year << "," << month << "," << day << "," << hour << "\n";
+    
+//     const auto copy_result_GM1 = copyEpitrendDataToInflux(influx_db, binary_data_GM1, "GM1", year, month, day, hour);
+//     const auto copy_result_GM2 = copyEpitrendDataToInflux(influx_db, binary_data_GM2, "GM2", year, month, day, hour);
+//     if (copy_result_GM1 < 0 || copy_result_GM2 < 0)
+//     {
+//         std::cout << time_now() << "Error in copying data to influxDB\n";
+//         return -1;
+//     }
+// }
+// }
+// }
+// }
+
+//=====================START OF REAL-TIME DATA INSERTION=====================
+const int sleep_seconds = 2;
+const int max_reconnect_attempts = 100;
+
+// Connect influxDB connection
 InfluxDatabase influx_db(host, port, org, bucket, user, password, precision, token);
 
 // Check the health of the connection
 influx_db.checkConnection(true);
 
-EpitrendBinaryData binary_data_GM1, binary_data_GM2;
-for(int year = 2024; year < 3000; year++){
-for(int month = 12; month > 0; --month) {
-for(int day = 31; day > 1; --day) {
-for(int hour = 24; hour > -1; --hour) {
-    std::cout << time_now() << "Processing data for: " << year << "," << month << "," << day << "," << hour << "\n";
-    
-    const auto copy_result_GM1 = copyEpitrendDataToInflux(influx_db, binary_data_GM1, "GM1", year, month, day, hour);
-    const auto copy_result_GM2 = copyEpitrendDataToInflux(influx_db, binary_data_GM2, "GM2", year, month, day, hour);
-    if (copy_result_GM1 < 0 || copy_result_GM2 < 0)
-    {
-        std::cout << time_now() << "Error in copying data to influxDB\n";
-        return -1;
+// Update the database real-time - every second
+EpitrendBinaryData previous_binary_data_GM1, previous_binary_data_GM2,
+current_binary_data_GM1, current_binary_data_GM2,
+difference_binary_data_GM1, difference_binary_data_GM2;
+while (true) {
+std::cout << time_now() << "Updating database in real-time...\n";
+
+// Grab the current year, month, day, and hour
+auto now = std::chrono::system_clock::now();
+std::time_t now_time = std::chrono::system_clock::to_time_t(now);
+std::tm* now_tm = std::localtime(&now_time);
+int year = now_tm->tm_year + 1900;
+int month = now_tm->tm_mon + 1;
+int day = now_tm->tm_mday;
+int hour = now_tm->tm_hour;
+
+std::cout << time_now() << "Processing data for: " << year << "," << month << "," << day << "," << hour << "\n";
+
+// Load the epitrend binary data into binary object
+try {
+    FileReader::parseServerEpitrendBinaryDataFile(current_binary_data_GM1, "GM1", year, month, day, hour, false);
+    FileReader::parseServerEpitrendBinaryDataFile(current_binary_data_GM2, "GM2", year, month, day, hour, false);
+} catch (std::exception& e) {
+    std::cout << time_now() << "No epitrend data file found for: " << year << "," << month << "," << day << "," << hour << "\n" << e.what() << "\n";
+    std::this_thread::sleep_for(std::chrono::seconds(sleep_seconds));
+    continue;
+}
+
+// Find the difference between the previous and current data
+difference_binary_data_GM1 = current_binary_data_GM1.difference(previous_binary_data_GM1);
+difference_binary_data_GM2 = current_binary_data_GM2.difference(previous_binary_data_GM2);
+
+// Copy the difference data to the influxDB
+if(!difference_binary_data_GM1.is_empty()) {
+    // Try to copy the data to influxDB with max_reconnect_attempts retries
+    for(int i = 0; i < max_reconnect_attempts; ++i) {
+        try {    
+            std::cout << time_now() << "Found difference data for GM1... copying the following data into influxDB: \n";
+            difference_binary_data_GM1.printAllTimeSeriesData();
+            
+            influx_db.copyEpitrendToBucket2(difference_binary_data_GM1, false);
+            
+            break;  
+        
+        } catch (std::exception& e) {
+            std::cout << time_now() << "Error in copying GM1 data to influxDB: " << e.what() << "\n Retrying...\n";
+            if (i == max_reconnect_attempts) {
+                std::cout << time_now() << "Failed to copy GM1 data to influxDB after " << max_reconnect_attempts << " tries\n";
+                return -1;
+            }
+                        
+            // Pause
+            std::this_thread::sleep_for(std::chrono::seconds(sleep_seconds));
+
+        }
     }
 }
+if(!difference_binary_data_GM2.is_empty()) {
+    // Try to copy the data to influxDB with 100 retries
+    for(int i = 0; i < max_reconnect_attempts; ++i) {
+        try {    
+            std::cout << time_now() << "Found difference data for GM2... copying the following data into influxDB: \n";
+            difference_binary_data_GM2.printAllTimeSeriesData();
+
+            influx_db.copyEpitrendToBucket2(difference_binary_data_GM2, false);
+            
+            break;
+             
+        } catch (std::exception& e) {
+            std::cout << time_now() << "Error in copying GM2 data to influxDB: " << e.what() << "\n Retrying...\n";
+            if (i == max_reconnect_attempts) {
+                std::cout << time_now() << "Failed to copy GM2 data to influxDB after " << max_reconnect_attempts << " tries\n";
+                return -1;
+            }
+                        
+            // Pause
+            std::this_thread::sleep_for(std::chrono::seconds(sleep_seconds));
+
+        }
+    }
 }
+
+// Reset binary data
+previous_binary_data_GM1 = current_binary_data_GM1;
+previous_binary_data_GM2 = current_binary_data_GM2;
+
+current_binary_data_GM1.clear();
+current_binary_data_GM2.clear();
+
+// Flush all data from epitrend binary data object if hour has changed
+now = std::chrono::system_clock::now();
+now_time = std::chrono::system_clock::to_time_t(now);
+now_tm = std::localtime(&now_time);
+if (now_tm->tm_hour != hour) {
+    previous_binary_data_GM1.clear();
+    previous_binary_data_GM2.clear();
 }
+
+
+std::this_thread::sleep_for(std::chrono::seconds(sleep_seconds));
+
 }
 
 return 0;
