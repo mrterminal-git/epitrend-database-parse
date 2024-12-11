@@ -57,7 +57,7 @@ int day,
 int hour) {
     try {
         // Parse the Epitrend binary data file
-        FileReader::parseEpitrendBinaryDataFile(binary_data, GM, year,month,day,hour,false);
+        FileReader::parseServerEpitrendBinaryDataFile(binary_data, GM, year,month,day,hour,false);
         std::cout << time_now() << "Parsed " + GM + " Epitrend data file for: " << year << "," << month << "," << day << "," << hour << "\n";
 
     } catch ( std::exception& e) {
@@ -134,7 +134,7 @@ InfluxDatabase influx_db(host, port, org, bucket, user, password, precision, tok
 influx_db.checkConnection(true);
 
 EpitrendBinaryData binary_data_GM1, binary_data_GM2;
-for(int year = 2024; year < 3000; year++){
+for(int year = 2024; year > 2019; --year){
 for(int month = 12; month > 0; --month) {
 for(int day = 31; day > 1; --day) {
 for(int hour = 24; hour > -1; --hour) {
@@ -151,6 +151,47 @@ for(int hour = 24; hour > -1; --hour) {
 }
 }
 }
+
+// =====================START OF DEBUGGING=====================
+
+// // Checking to see if there is any loss of precision in the process of parsing
+// // the binary data file
+
+// // Create binary data
+// EpitrendBinaryData debug_binary_data;
+
+// // Parse the binary data file
+// try {
+//     FileReader::parseEpitrendBinaryDataFile(debug_binary_data, "GM2", 2024, 10, 10, 10, true);
+// } catch (std::exception& e) {
+//     std::cout << time_now() << "Error parsing binary data file: " << e.what() << "\n";
+//     return -1;
+// }
+
+// // Print the binary data
+// debug_binary_data.printAllTimeSeriesData();
+
+// // Print the binary data into a text file
+// debug_binary_data.printFileAllTimeSeriesData("GM2_2024_10_10_10.txt");
+
+// // Checking to see if there is any loss of precision in the process of copying
+// // the binary data into the InfluxDB
+
+// // Create influx object
+// InfluxDatabase influx_db(host, port, org, bucket, user, password, precision, token);
+
+// // Check the health of the connection
+// influx_db.checkConnection(true);
+
+// // Copy the binary data into the InfluxDB
+// try {
+//     influx_db.copyEpitrendToBucket2(debug_binary_data, true);
+// } catch (std::exception& e) {
+//     std::cout << time_now() << "Error copying binary data to InfluxDB: " << e.what() << "\n";
+//     return -1;
+// }
+
+
 
 // =====================START OF REAL-TIME DATA INSERTION=====================
 // const int sleep_seconds = 2;

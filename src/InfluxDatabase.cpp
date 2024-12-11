@@ -726,6 +726,7 @@ bool InfluxDatabase::copyEpitrendToBucket2(EpitrendBinaryData data, bool verbose
     // Loop through all data
     std::unordered_map<std::string, std::unordered_map<double,double>> raw_data = data.getAllTimeSeriesData();
     std::vector<std::string> batch_data;
+
     for(const auto& name_data_map : raw_data) {
         // CHECK IF PART NAME IS IN NS TABLE
         // IF IT ISN'T
@@ -802,8 +803,14 @@ bool InfluxDatabase::copyEpitrendToBucket2(EpitrendBinaryData data, bool verbose
         // Loop through all the time-value pairs for the current name
         for (const auto& time_value : name_data_map.second) {
             // Prepare the ts write query
-            ts_write.num = std::to_string(time_value.second);
-            ts_write.timestamp = std::to_string(convertDaysFromEpochToPrecisionFromUnix(time_value.first));
+            std::ostringstream num_stream;
+            num_stream << std::setprecision(15) << time_value.second;
+            ts_write.num = num_stream.str();
+
+            std::ostringstream timestamp_stream;
+            timestamp_stream << std::setprecision(15) << convertDaysFromEpochToPrecisionFromUnix(time_value.first);
+            ts_write.timestamp = timestamp_stream.str();
+
             ts_write.set_write_query();
             
             // Batch the data
