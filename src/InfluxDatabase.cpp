@@ -744,7 +744,7 @@ bool InfluxDatabase::copyEpitrendToBucket2(EpitrendBinaryData data, bool verbose
 
         // Check if sensor_ name exists in the ns table
         int found_sensor_name_in_ns = 
-            !(sensor_names_to_ids.find(name_data_map.first) == sensor_names_to_ids.end());
+            !(sensor_names_to_ids.find(escapeSpecialChars(name_data_map.first)) == sensor_names_to_ids.end());
 
         // Check if data is found
         if(!found_sensor_name_in_ns) {
