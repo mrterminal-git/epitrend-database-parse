@@ -133,7 +133,10 @@
     "thread": "cpp",
     "condition_variable": "cpp",
     "future": "cpp",
-    "mutex": "cpp"
+    "mutex": "cpp",
+    "set": "cpp",
+    "bitset": "cpp",
+    "regex": "cpp"
   },
   "C_Cpp.errorSquiggles": "enabled"
 }
