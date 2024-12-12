@@ -1,5 +1,7 @@
 #include "FileReader.hpp"
 
+namespace fs = std::filesystem;
+
 // Internal trim function 
 std::string FileReader::trimInternal(const std::string& str) {
     std::string trimmed = str;
@@ -429,4 +431,90 @@ void FileReader::parseServerEpitrendBinaryDataFile(
 
     }
 
+}
+
+
+// Parse the RGA data file
+void FileReader::parseRGADataFile(
+    std::string GM,
+    int year,
+    int month,
+    int day,
+    bool verbose
+) {
+    // Construct the directory path
+    std::ostringstream dir_oss;
+    dir_oss << "data/MBE1/"
+            << std::setfill('0') << std::setw(4) << year << "-"
+            << std::setw(3) << month << "-"
+            << std::setw(2) << day;
+    std::string directory = dir_oss.str();
+
+    // Check if the directory exists
+    if (!fs::exists(directory) || !fs::is_directory(directory)) {
+        throw std::runtime_error("Error parseRGADataFile function call:"
+        " Directory does not exist: " 
+        + directory);
+    }
+
+    // Construct the regex pattern dynamically
+    std::ostringstream oss;
+    oss << "daily log, " << GM << ", RGA MPH .*?, "
+        << std::setfill('0') << std::setw(4) << year << "-"
+        << std::setw(3) << month << "-"
+        << std::setw(2) << day << " .*?\\.dat";
+    std::string pattern = oss.str();
+
+    if (verbose) {
+        std::cout << "Constructed directory path: " << directory << std::endl;
+        std::cout << "Constructed regex pattern: " << pattern << std::endl;
+    }
+
+    // Compile the regex pattern
+    std::regex regex_pattern(pattern);
+
+    // Search for matching files
+    bool file_found = false;
+
+    std::cout << "Searching for matching files in directory: " << directory << "\n";
+    for (const auto& entry : fs::directory_iterator(directory)) {
+        if (fs::is_regular_file(entry.path())) {
+            std::string filename = entry.path().filename().string();
+            if (std::regex_match(filename, regex_pattern)) {
+                std::string fullpath = entry.path().string();
+                if (verbose) {
+                    std::cout << "Found matching file: " << fullpath << std::endl;
+                }
+
+                // Open the file
+                std::ifstream file(fullpath);
+                if (!file.is_open()) {
+                    throw std::runtime_error("Error parseRGADataFile function call:"
+                    " Could not open file: " + fullpath);
+                }
+
+                // Load binary data into a buffer
+                std::vector<double> binary_buffer;
+                float value;
+
+                // Read the binary data
+                while (file.read(reinterpret_cast<char*>(&value), sizeof(value))) {
+                    binary_buffer.push_back(value);
+                }
+
+                // Process the binary data as needed
+                // ...
+                // Load the data into a buffer
+
+                file.close();
+                file_found = true;
+                break; // Stop searching after finding the first matching file
+            }
+        }
+    }
+
+    if (!file_found) {
+        throw std::runtime_error("Error parseRGADataFile function call:"
+        " No matching file found for pattern: " + pattern);
+    }
 }

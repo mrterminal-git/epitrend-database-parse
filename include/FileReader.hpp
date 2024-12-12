@@ -2,6 +2,7 @@
 #define FILEREADER_HPP
 
 #include <sstream>
+#include <regex>
 #include "Common.hpp"
 #include "EpitrendBinaryFormat.hpp"
 #include "EpitrendBinaryData.hpp"
@@ -50,6 +51,15 @@ public:
         int month,
         int day,
         int hour,
+        bool verbose
+    );
+
+    // Parse the RGA data file
+    static void parseRGADataFile(
+        std::string GM,
+        int year,
+        int month,
+        int day,
         bool verbose
     );
 
