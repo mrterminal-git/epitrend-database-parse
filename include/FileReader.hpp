@@ -6,6 +6,7 @@
 #include "Common.hpp"
 #include "EpitrendBinaryFormat.hpp"
 #include "EpitrendBinaryData.hpp"
+#include "RGAData.hpp"
 
 class FileReader {
 public:
@@ -56,6 +57,7 @@ public:
 
     // Parse the RGA data file
     static void parseRGADataFile(
+        RGAData& rga_data,
         std::string GM,
         int year,
         int month,
