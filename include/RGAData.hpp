@@ -41,6 +41,18 @@ public:
             }
             return true;
         }
+
+        // Print function
+        void print() const {
+            std::string bin_string = "";
+            for (const auto& bin : bins) {
+                bin_string += "" + std::to_string(bin) + ",";
+            }
+            if (!bin_string.empty()) {
+                bin_string.pop_back();
+            }
+            std::cout << bin_string << "\n";
+        }
     };
 
     // Custom hash function for AMUBins
@@ -60,8 +72,8 @@ public:
 
     // Getters and Setters
     void addData(const AMUBins& bins, double time, double value);
-
     const std::unordered_map<AMUBins, std::unordered_map<double, double>, AMUBinsHash>& getData();
+    const std::vector<AMUBins> getBins();
 
     // Utility
     void printAllTimeSeriesData();

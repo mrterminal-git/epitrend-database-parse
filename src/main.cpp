@@ -153,10 +153,12 @@ rga_data.printAllTimeSeriesData();
 
 // Testing FileReader parseRGADataFile
     try {
-        FileReader::parseRGADataFile("GM2", 2023, 12, 11, true);
+        FileReader::parseRGADataFile(rga_data, "GM2", 2024, 12, 11, true);
     } catch (const std::exception& e) {
         std::cerr << e.what() << std::endl;
     }
+
+// =====================START OF HISTORICAL DATA INSERTION=====================
 
 // // Create influx object
 // InfluxDatabase influx_db(host, port, org, bucket, user, password, precision, token);

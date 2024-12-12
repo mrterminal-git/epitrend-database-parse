@@ -8,6 +8,14 @@ const std::unordered_map<RGAData::AMUBins, std::unordered_map<double,double>,RGA
     return allTimeSeriesData;
 }
 
+const std::vector<RGAData::AMUBins> RGAData::getBins() {
+    std::vector<RGAData::AMUBins> bins;
+    for(auto element : allTimeSeriesData){
+        bins.push_back(element.first);
+    }
+    return bins;
+}
+
 void RGAData::clearData() {
     allTimeSeriesData.clear();
 }
