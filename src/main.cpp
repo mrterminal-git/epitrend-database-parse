@@ -121,7 +121,7 @@ int hour) {
 const std::string& org = "au-mbe-eng";
 const std::string& host = "127.0.0.1";
 const int port = 8086;
-const std::string& bucket = "MBE_BMS_2";
+const std::string& bucket = "MBE_BMS_3";
 const std::string& user = "";
 const std::string& password = "";
 const std::string& precision = "ms";
@@ -157,6 +157,15 @@ rga_data.printAllTimeSeriesData();
     } catch (const std::exception& e) {
         std::cerr << e.what() << std::endl;
     }
+
+// Create influx object
+InfluxDatabase influx_db(host, port, org, bucket, user, password, precision, token);
+
+// Check the health of the connection
+influx_db.checkConnection(true);
+
+// Test copyRGADataToBucket
+influx_db.copyRGADataToBucket(rga_data, true);
 
 // =====================START OF HISTORICAL DATA INSERTION=====================
 

@@ -4,6 +4,7 @@
 #include "Common.hpp"
 #include "influxdb.hpp"
 #include "EpitrendBinaryData.hpp"
+#include "RGAData.hpp"
 
 #include <curl/curl.h>
 
@@ -60,6 +61,8 @@ public:
     // Copying to bucket
     bool copyEpitrendToBucket(EpitrendBinaryData data, bool verbose = false);
     bool copyEpitrendToBucket2(EpitrendBinaryData data, bool verbose = false);
+    bool copyRGADataToBucket(RGAData data, bool verbose = false);
+
 
 private:
     influxdb_cpp::server_info serverInfo;
@@ -86,6 +89,9 @@ private:
 
     // Internal function to convert days from Epoch to precision_ from Unix Epoch
     long long convertDaysFromEpochToPrecisionFromUnix(double days);
+
+    // Internal function to convert seconds from Unix to precision_ from Unix Epoch
+    long long convertSecondsFromUnixToPrecisionFromUnix(double unix_time_seconds);
 };
 
 #endif // INFLUXDATABASE_HPP

@@ -33,7 +33,7 @@ void RGAData::addData(const RGAData::AMUBins& bins, double time, double value) {
     allTimeSeriesData[bins][time] = value;
 }
 
-const std::unordered_map<RGAData::AMUBins, std::unordered_map<double,double>,RGAData::AMUBinsHash>& RGAData::getData() {
+const std::unordered_map<RGAData::AMUBins, std::unordered_map<double, double, std::hash<double>, std::equal_to<double>, std::allocator<std::pair<const double, double>>>, RGAData::AMUBinsHash, std::equal_to<RGAData::AMUBins>, std::allocator<std::pair<const RGAData::AMUBins, std::unordered_map<double, double, std::hash<double>, std::equal_to<double>, std::allocator<std::pair<const double, double>>>>>>& RGAData::getAllTimeSeriesData() const {
     return allTimeSeriesData;
 }
 

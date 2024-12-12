@@ -42,6 +42,22 @@ public:
             return true;
         }
 
+        // Bins string
+        std::string binsString() const {
+            std::string bin_string = "";
+            for (const auto& bin : bins) {
+                std::ostringstream bin_stream;
+                bin_stream.precision(2);
+                bin_stream << std::fixed << bin;
+                std::string bin_precise = std::move(bin_stream).str();
+                bin_string += "" + bin_precise + "_";
+            }
+            if (!bin_string.empty()) {
+                bin_string.pop_back();
+            }
+            return bin_string;
+        }
+
         // Print function
         void print() const {
             std::string bin_string = "";
@@ -73,7 +89,7 @@ public:
 
     // Getters and Setters
     void addData(const AMUBins& bins, double time, double value);
-    const std::unordered_map<AMUBins, std::unordered_map<double, double>, AMUBinsHash>& getData();
+    const std::unordered_map<AMUBins, std::unordered_map<double, double, std::hash<double>, std::equal_to<double>, std::allocator<std::pair<const double, double>>>, AMUBinsHash, std::equal_to<AMUBins>, std::allocator<std::pair<const AMUBins, std::unordered_map<double, double, std::hash<double>, std::equal_to<double>, std::allocator<std::pair<const double, double>>>>>>& getAllTimeSeriesData() const;
     const std::vector<AMUBins> getBins();
 
     // Utility
