@@ -68,7 +68,8 @@ public:
 
 public:
     // Constructors
-    RGAData() = default;
+    RGAData();
+    RGAData(const int& bins_per_unit);
 
     // Getters and Setters
     void addData(const AMUBins& bins, double time, double value);

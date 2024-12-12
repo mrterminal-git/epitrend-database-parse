@@ -142,12 +142,12 @@ std::cout << "AMUBins 1 == AMUBins 3: " << (amu_bins1 == amu_bins3) << "\n";
 
 // Create RGABins object
 RGAData rga_data;
-rga_data.addData(amu_bins1, 1.0, 10.0);
-rga_data.addData(amu_bins1, 2.0, 20.0);
-rga_data.addData(amu_bins2, 1.0, 10.0);
-rga_data.addData(amu_bins2, 2.0, 20.0);
-rga_data.addData(amu_bins3, 1.0, 10.0);
-rga_data.addData(amu_bins3, 2.0, 20.0);
+// rga_data.addData(amu_bins1, 1.0, 10.0);
+// rga_data.addData(amu_bins1, 2.0, 20.0);
+// rga_data.addData(amu_bins2, 1.0, 10.0);
+// rga_data.addData(amu_bins2, 2.0, 20.0);
+// rga_data.addData(amu_bins3, 1.0, 10.0);
+// rga_data.addData(amu_bins3, 2.0, 20.0);
 
 rga_data.printAllTimeSeriesData();
 

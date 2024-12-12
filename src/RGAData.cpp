@@ -1,5 +1,34 @@
 #include "RGAData.hpp"
 
+// Default constructor
+RGAData::RGAData() {
+    // Initialize bins around integers 1 to 99
+    for (int i = 1; i <= 99; ++i) {
+        std::vector<double> bin_values;
+        for (double j = -0.4; j <= 0.4; j += 0.1) {
+            bin_values.push_back(i + j);
+        }
+        AMUBins amubins(bin_values);
+        allTimeSeriesData[amubins] = std::unordered_map<double, double>();
+    }
+}
+RGAData::RGAData(const int& bins_per_unit) {
+    // Force that bins_per_unit must be less than 5
+    if (bins_per_unit > 4) {
+        throw std::runtime_error("Error in RGAData constructor: bins per unit must be less than 5");
+    }
+
+    // Initialize bins around integers 1 to 99
+    for (int i = 1; i <= 99; ++i) {
+        std::vector<double> bin_values;
+        for (int j = 0; j < 2 * bins_per_unit + 1; ++j) {
+            bin_values.push_back(i - (double) bins_per_unit * 0.1 + (double) j * 0.1);
+        }
+        AMUBins amubins(bin_values);
+        allTimeSeriesData[amubins] = std::unordered_map<double, double>();
+    }
+}
+
 void RGAData::addData(const RGAData::AMUBins& bins, double time, double value) {
     allTimeSeriesData[bins][time] = value;
 }
