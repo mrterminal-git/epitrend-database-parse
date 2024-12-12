@@ -2,6 +2,7 @@
 #define RGADATA_HPP
 
 #include "Common.hpp"
+#include "Config.hpp"
 
 class RGAData {
 public:
@@ -94,6 +95,7 @@ public:
 
     // Utility
     void printAllTimeSeriesData();
+    void printFileAllTimeSeriesData(const std::string& filename);
     void clearData();
 
 private:

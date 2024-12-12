@@ -64,3 +64,20 @@ void RGAData::printAllTimeSeriesData(){
         }
     }
 }
+
+void RGAData::printFileAllTimeSeriesData(const std::string& filename) {
+    std::ofstream outFile(Config::getOutputDir() + filename);
+    for(auto element : allTimeSeriesData) {
+        std::string bin_str = "";
+        for(auto bin : element.first.bins){
+            bin_str += std::to_string(bin) + ",";
+        }
+        // Remove the last comma
+        if(!bin_str.empty()) bin_str.pop_back();
+        outFile << bin_str << "\n";
+        
+        for(auto inner_element : element.second) {
+            outFile << inner_element.first << "," << inner_element.second << "\n";
+        }
+    }
+}
