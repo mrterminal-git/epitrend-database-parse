@@ -755,7 +755,7 @@ void FileReader::parseServerRGADataFile(
 
     // Add time-series data into RGAData object
     for (auto& AMUbin_object : rga_object_bins) {
-        std::cout << "Current bin: "; AMUbin_object.print();
+        if (verbose) {std::cout << "Current bin: "; AMUbin_object.print();}
         for (const auto& time_header_map : all_time_series_header_map) {
             // Extract the time and value from the time_series and header map
             double current_input_unix_time = time_header_map.first;

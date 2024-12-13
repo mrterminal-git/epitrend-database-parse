@@ -36,6 +36,10 @@ void RGAData::addData(const RGAData::AMUBins& bins, double time, double value) {
     byteSize = byteSize + 16 + bins.bins.size() * 8; // 8 bytes * 2 + 8 bytes * number of bins
 }
 
+int RGAData::getByteSize() const {
+    return byteSize;
+}
+
 const std::unordered_map<RGAData::AMUBins, std::unordered_map<double, double, std::hash<double>, std::equal_to<double>, std::allocator<std::pair<const double, double>>>, RGAData::AMUBinsHash, std::equal_to<RGAData::AMUBins>, std::allocator<std::pair<const RGAData::AMUBins, std::unordered_map<double, double, std::hash<double>, std::equal_to<double>, std::allocator<std::pair<const double, double>>>>>>& RGAData::getAllTimeSeriesData() const {
     return allTimeSeriesData;
 }

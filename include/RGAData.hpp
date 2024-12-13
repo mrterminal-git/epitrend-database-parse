@@ -96,6 +96,7 @@ public:
 
     // Getters and Setters
     void addData(const AMUBins& bins, double time, double value);
+    int getByteSize() const;
     const std::unordered_map<AMUBins, std::unordered_map<double, double, std::hash<double>, std::equal_to<double>, std::allocator<std::pair<const double, double>>>, AMUBinsHash, std::equal_to<AMUBins>, std::allocator<std::pair<const AMUBins, std::unordered_map<double, double, std::hash<double>, std::equal_to<double>, std::allocator<std::pair<const double, double>>>>>>& getAllTimeSeriesData() const;
     const std::vector<AMUBins> getBins();
 
