@@ -65,6 +65,16 @@ public:
         bool verbose
     );
 
+    // Parse the server RGA data file
+    static void parseServerRGADataFile(
+        RGAData& rga_data,
+        std::string GM,
+        int year,
+        int month,
+        int day,
+        bool verbose
+    );
+
 private:
 	// Internal use of trimming
 	static std::string trimInternal(const std::string& str);

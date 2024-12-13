@@ -433,7 +433,6 @@ void FileReader::parseServerEpitrendBinaryDataFile(
 
 }
 
-
 // Parse the RGA data file
 void FileReader::parseRGADataFile(
     RGAData& rga_data,
@@ -446,6 +445,186 @@ void FileReader::parseRGADataFile(
     // Construct the directory path
     std::ostringstream dir_oss;
     dir_oss << "data/MBE1/"
+            << std::setfill('0') << std::setw(4) << year << "-"
+            << std::setw(3) << month << "-"
+            << std::setw(2) << day;
+    std::string directory = dir_oss.str();
+
+    // Check if the directory exists
+    if (!fs::exists(directory) || !fs::is_directory(directory)) {
+        throw std::runtime_error("Error parseRGADataFile function call:"
+        " Directory does not exist: " 
+        + directory);
+    }
+
+    // Construct the regex pattern dynamically
+    std::ostringstream oss;
+    oss << "daily log, " << GM << ", RGA MPH .*?, "
+        << std::setfill('0') << std::setw(4) << year << "-"
+        << std::setw(3) << month << "-"
+        << std::setw(2) << day << " .*?\\.dat";
+    std::string pattern = oss.str();
+
+    if (verbose) {
+        std::cout << "In parseRGADataFile call: constructed directory path: " << directory << std::endl;
+        std::cout << "In parseRGADataFile call: constructed regex pattern: " << pattern << std::endl;
+    }
+
+    // Compile the regex pattern
+    std::regex regex_pattern(pattern);
+
+    // Search for matching files
+    bool file_found = false;
+
+    // Storage structure for all lines in file
+    std::vector<std::string> lines;
+
+
+    if (verbose) 
+        std::cout << "In parseRGADataFile call: searching for"
+        " matching files in directory: " << directory << "\n";
+    for (const auto& entry : fs::directory_iterator(directory)) {
+        if (fs::is_regular_file(entry.path())) {
+            std::string filename = entry.path().filename().string();
+            if (std::regex_match(filename, regex_pattern)) {
+                std::string fullpath = entry.path().string();
+                if (verbose) 
+                    std::cout << "In parseRGADataFile call: found matching file: " << fullpath << std::endl;
+
+                // Open the file
+                std::ifstream file(fullpath);
+                if (!file.is_open()) {
+                    throw std::runtime_error("Error parseRGADataFile function call:"
+                    " Could not open file: " + fullpath);
+                }
+
+                // Load all the lines into a buffer
+                std::string line;
+                while (std::getline(file, line)) {
+                    lines.push_back(line);
+                }
+
+                file.close();
+                file_found = true;
+                break; // Stop searching after finding the first matching file
+            }
+        }
+    }
+    
+    // Throw an error if no matching file is found
+    if (!file_found) {
+        throw std::runtime_error("Error parseRGADataFile function call:"
+        " No matching file found for pattern: " + pattern);
+    }
+
+    // Ensure the data file has a headers row
+    if (lines.empty()) {
+        throw std::runtime_error("Error parseRGADataFile function call: Data file is empty.");
+    }
+
+    // Find the header row
+    size_t header_row_index = 0;
+    for (; header_row_index < lines.size(); ++header_row_index) {
+        if (lines[header_row_index].find("Time Relative (sec)") != std::string::npos) {
+            break;
+        }
+    }
+
+    // Throw an error if no header row is found
+    if (header_row_index == lines.size()) {
+        throw std::runtime_error("Error parseRGADataFile function call: No header row found in the data file.");
+    }
+
+    // Process the headers row
+    std::istringstream header_stream(lines[header_row_index]);
+    std::vector<std::string> headers;
+    std::string header;
+    std::vector<double> bins;  // May not need
+    while (std::getline(header_stream, header, '\t')) {
+        if (header != "Time Relative (sec)" && header != "Time Absolute (UTC)" && header != "Time Absolute (Date_Time)" && header != "Step") {
+            bins.push_back(std::stod(header));
+        }
+        headers.push_back(header);
+    }
+
+    // Map the header to each row entry for all entire time series
+    std::unordered_map<double, std::unordered_map<std::string, std::string>> all_time_series_header_map;
+    for (size_t i = header_row_index + 1; i < lines.size(); ++i) {
+        std::vector<std::string> current_row = FileReader::split(lines.at(i), "\t");
+
+        // Check that the numbers of headers and the current line match
+        if (current_row.size() != headers.size())
+            throw std::runtime_error("Error parseRGADataFile function call: Number of headers and row entries do not match.");
+        
+        // Map the headers to the current row entries
+        // THIS ASSUMES THAT THE UNIX TIME IS THE SECOND ENTRY IN THE ROW
+        double unix_time;
+        try {
+            unix_time = std::stod(current_row.at(1));
+        } catch (const std::exception& e) {
+            if (verbose) std::cerr << "Error parseRGADataFile function call: error parsing unix time: " << e.what() << "\n";
+            throw std::runtime_error("Error parseRGADataFile function call: Error parsing unix time");
+        }
+        for (size_t j = 0; j < headers.size(); ++j) {
+            all_time_series_header_map[unix_time][headers.at(j)] = current_row.at(j);
+        }
+    }
+
+    // Extract the AMUBins struct from input RGAData object
+    std::vector<RGAData::AMUBins> rga_object_bins = rga_data.getBins();
+
+    // Add time-series data into RGAData object
+    for (auto& AMUbin_object : rga_object_bins) {
+        std::cout << "Current bin: "; AMUbin_object.print();
+        for (const auto& time_header_map : all_time_series_header_map) {
+            // Extract the time and value from the time_series and header map
+            double current_input_unix_time = time_header_map.first;
+
+            // Calculate the average of the bin values
+            double current_input_value = 0.0;
+            for (const auto& bin : AMUbin_object.bins) {
+                // Extract the value from the time_series and header map
+                std::ostringstream bin_stream;
+                bin_stream.precision(2);
+                bin_stream << std::fixed << bin;
+                std::string bin_search = std::move(bin_stream).str();
+                if (time_header_map.second.find(bin_search) == time_header_map.second.end())
+                    throw std::runtime_error("Error parseRGADataFile function call: bin value not found in header map.");
+
+                // Add the value to the current input value
+                current_input_value += stod(time_header_map.second.at(bin_search));
+            }
+            current_input_value /= AMUbin_object.bins.size();
+            
+            // Add the time-series data to the RGAData object
+            if (verbose) {
+                std::cout << "Adding data to RGAData object: "
+                << std::setprecision(9) << current_input_unix_time 
+                << ", " << current_input_value 
+                << "\n";
+            }
+
+            // Set the GM for AMUbin_object
+            AMUbin_object.GM = GM;
+
+            // Add the data to the RGAData object
+            rga_data.addData(AMUbin_object, current_input_unix_time, current_input_value);
+        }
+    }
+}
+
+// Parse the RGA data file
+void FileReader::parseServerRGADataFile(
+    RGAData& rga_data,
+    std::string GM,
+    int year,
+    int month,
+    int day,
+    bool verbose
+) {
+    // Construct the directory path
+    std::ostringstream dir_oss;
+    dir_oss << "/mnt/y/BNE-Characterisation/In-situ_MBE/Inficon RGA/MBE1/"
             << std::setfill('0') << std::setw(4) << year << "-"
             << std::setw(3) << month << "-"
             << std::setw(2) << day;
