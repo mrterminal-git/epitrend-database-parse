@@ -117,6 +117,61 @@ int hour) {
     return 1;
 }
 
+int copyRGADataToInflux(InfluxDatabase influx_db,
+RGAData& rga_data,
+std::string GM,
+int year,
+int month,
+int day) {
+
+try {
+    // Parse the RGA data file
+    FileReader::parseServerRGADataFile(rga_data, GM, year, month, day, false);
+    std::cout << time_now() << "Parsed " + GM + " RGA data file for: " << year << "," << month << "," << day << "\n";
+
+} catch (const std::exception& e) {
+    std::cerr << e.what() << "\n";
+    std::cout << time_now() << "No " + GM + " RGA data file found for: " << year << "," << month << "," << day << "\n" << e.what() << "\n";
+
+}
+
+// Check the current size of the epitrend binary data object
+std::cout << time_now() << "Current size of " + GM + " RGAData object: " << rga_data.getByteSize() << "\n";
+if (rga_data.getByteSize() > 0.1 * pow(10.0, 6.0) ) { // Limit INSERTS to ~10 mb packs
+    std::cout << time_now() << "Curret " + GM + " RGA data object exceeded size limit -> inserting data into SQL DB and flushing object...\n";
+
+    int num_tries_counter = 0;
+    for (int i = 0; i < 100; ++i) {
+        try {
+            influx_db.copyRGADataToBucket(rga_data, false);
+        } catch (const std::exception& e) {
+            std::cout << time_now() << "Error in copying " + GM + " RGA data to influxDB: " << e.what() << "\n Retrying...\n";
+            std::cerr << e.what() << "\n";
+            if (num_tries_counter == 100) {
+                std::cout << time_now() << "Failed to copy " + GM + " RGA data to influxDB after 100 tries\n";
+                return -1;
+
+            }
+
+        }
+    }
+
+    // Count the number of entries in the database
+    int db_entry_count = 0;
+    for(auto element : rga_data.getAllTimeSeriesData()){
+        db_entry_count += element.second.size();
+    }
+    std::cout << "Number of " + GM + " RGA entries in the database: " << db_entry_count << "\n";
+    std::cout << "Approximate db size increased: " << db_entry_count * 100 << 
+    " bytes" << " = " << db_entry_count * 100 / pow(10.0, 6.0) << " MB" << "\n";
+    
+    // Flush the current epitrend data object
+    rga_data.clearData();
+}    
+
+return 1;
+}
+
 // Define the constants
 const std::string& org = "au-mbe-eng";
 const std::string& host = "127.0.0.1";
@@ -169,20 +224,17 @@ InfluxDatabase influx_db(host, port, org, bucket, user, password, precision, tok
 // Check the health of the connection
 influx_db.checkConnection(true);
 
-RGAData rga_data;
+RGAData GM1_rga_data, GM2_rga_data, Cluster_rga_data;
 for(int year = 2024; year > 2019; --year){
 for(int month = 12; month > 0; --month) {
 for(int day = 31; day > 1; --day) {
-    try {
-        FileReader::parseRGADataFile(rga_data, "GM2", year, month, day, false);
-    } catch (const std::exception& e) {
-        std::cerr << e.what() << "\n";
-    }
-
-    try { 
-        influx_db.copyRGADataToBucket(rga_data, false);
-    } catch (const std::exception& e) {
-        std::cerr << e.what() << "\n";
+    const auto copy_result_GM1 = copyRGADataToInflux(influx_db, GM1_rga_data, "GM1", year, month, day);
+    const auto copy_result_GM2 = copyRGADataToInflux(influx_db, GM2_rga_data, "GM2", year, month, day);
+    const auto copy_result_Cluster = copyRGADataToInflux(influx_db, Cluster_rga_data, "Cluster", year, month, day);
+    if (copy_result_GM1 < 0 || copy_result_GM2 < 0 || copy_result_Cluster < 0)
+    {
+        std::cout << time_now() << "Error in copying data to influxDB\n";
+        return -1;
     }
 }
 }
