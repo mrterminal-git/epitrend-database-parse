@@ -128,35 +128,40 @@ const std::string& precision = "ms";
 const std::string& token = "142ce8c4d871f807e6f8c3c264afcb5588d7c82ecaad305d8fde09f3f5dec642";
 
 int main() {
-// Testing AMUBins struct
-std::vector<double> bins1 = {2.0, 0.5, 3.0};
-std::vector<double> bins2 = {0.5, 2.0, 3.0};
-std::vector<double> bins3 = {1.0, 2.0, 4.0};
+// // Testing AMUBins struct
+// std::vector<double> bins1 = {2.0, 0.5, 3.0};
+// std::vector<double> bins2 = {0.5, 2.0, 3.0};
+// std::vector<double> bins3 = {1.0, 2.0, 4.0};
 
-RGAData::AMUBins amu_bins1(bins1);
-RGAData::AMUBins amu_bins2(bins2);
-RGAData::AMUBins amu_bins3(bins3);
+// RGAData::AMUBins amu_bins1(bins1);
+// RGAData::AMUBins amu_bins2(bins2);
+// RGAData::AMUBins amu_bins3(bins3);
 
-std::cout << "AMUBins 1 == AMUBins 2: " << (amu_bins1 == amu_bins2) << "\n";
-std::cout << "AMUBins 1 == AMUBins 3: " << (amu_bins1 == amu_bins3) << "\n";
+// std::cout << "AMUBins 1 == AMUBins 2: " << (amu_bins1 == amu_bins2) << "\n";
+// std::cout << "AMUBins 1 == AMUBins 3: " << (amu_bins1 == amu_bins3) << "\n";
 
-// Create RGABins object
-RGAData rga_data;
-// rga_data.addData(amu_bins1, 1.0, 10.0);
-// rga_data.addData(amu_bins1, 2.0, 20.0);
-// rga_data.addData(amu_bins2, 1.0, 10.0);
-// rga_data.addData(amu_bins2, 2.0, 20.0);
-// rga_data.addData(amu_bins3, 1.0, 10.0);
-// rga_data.addData(amu_bins3, 2.0, 20.0);
+// // Create RGABins object
+// RGAData rga_data;
+// // rga_data.addData(amu_bins1, 1.0, 10.0);
+// // rga_data.addData(amu_bins1, 2.0, 20.0);
+// // rga_data.addData(amu_bins2, 1.0, 10.0);
+// // rga_data.addData(amu_bins2, 2.0, 20.0);
+// // rga_data.addData(amu_bins3, 1.0, 10.0);
+// // rga_data.addData(amu_bins3, 2.0, 20.0);
 
-rga_data.printAllTimeSeriesData();
+// rga_data.printAllTimeSeriesData();
 
-// Testing FileReader parseRGADataFile
-    try {
-        FileReader::parseRGADataFile(rga_data, "GM2", 2024, 12, 11, true);
-    } catch (const std::exception& e) {
-        std::cerr << e.what() << std::endl;
-    }
+// // Testing FileReader parseRGADataFile
+//     try {
+//         FileReader::parseRGADataFile(rga_data, "GM2", 2024, 12, 11, true);
+//     } catch (const std::exception& e) {
+//         std::cerr << e.what() << std::endl;
+//     }
+
+// // Print the data
+// rga_data.printFileAllTimeSeriesData("rga_data_test.log");
+
+// =====================START OF HISTORICAL RGA DATA INSERTION=====================
 
 // Create influx object
 InfluxDatabase influx_db(host, port, org, bucket, user, password, precision, token);
@@ -164,8 +169,24 @@ InfluxDatabase influx_db(host, port, org, bucket, user, password, precision, tok
 // Check the health of the connection
 influx_db.checkConnection(true);
 
-// Test copyRGADataToBucket
-influx_db.copyRGADataToBucket(rga_data, true);
+RGAData rga_data;
+for(int year = 2024; year > 2019; --year){
+for(int month = 12; month > 0; --month) {
+for(int day = 31; day > 1; --day) {
+    try {
+        FileReader::parseRGADataFile(rga_data, "GM2", year, month, day, false);
+    } catch (const std::exception& e) {
+        std::cerr << e.what() << "\n";
+    }
+
+    try { 
+        influx_db.copyRGADataToBucket(rga_data, false);
+    } catch (const std::exception& e) {
+        std::cerr << e.what() << "\n";
+    }
+}
+}
+}
 
 // =====================START OF HISTORICAL DATA INSERTION=====================
 

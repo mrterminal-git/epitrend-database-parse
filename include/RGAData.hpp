@@ -19,8 +19,12 @@ public:
 
     // Define the AMUBins struct
     struct AMUBins {
+        // AMU bins in acending order
         std::set<double, std::less<>> bins;
-
+        
+        // AMUBins default GM
+        std::string GM = "Cluster";
+        
         // Constructor to initialize the bins
         AMUBins(const std::vector<double>& bin_values) {
             bins.insert(bin_values.begin(), bin_values.end());
@@ -40,12 +44,14 @@ public:
                 ++it1;
                 ++it2;
             }
+            // Last check to see if GM is the same
+            return GM == other.GM;
             return true;
         }
 
         // Bins string
         std::string binsString() const {
-            std::string bin_string = "";
+            std::string bin_string = GM + ".";
             for (const auto& bin : bins) {
                 std::ostringstream bin_stream;
                 bin_stream.precision(2);

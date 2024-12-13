@@ -995,7 +995,7 @@ bool InfluxDatabase::copyRGADataToBucket(RGAData data, bool verbose) {
             // GET THE SENSOR_ID
         // ENTER ALL ASSOCIATED DATA INTO TS TABLE WITH ASSOCIATE SENSOR ID
         
-        std::string name = "RGA.bin." + name_data_map.first.binsString();
+        std::string name = "RGA." + name_data_map.first.binsString();
 
         if(verbose)
             std::cout << "--------------------\n Current name: " <<
@@ -1076,6 +1076,9 @@ bool InfluxDatabase::copyRGADataToBucket(RGAData data, bool verbose) {
             
             // Batch the data
             batch_data.push_back(ts_write.write_query);
+
+            // Print query
+            if(verbose) std::cout << "Query: " << ts_write.write_query << "\n";
 
             if(batch_data.size() >= batchSize) {
                 // Write the time-value pair to the ts table

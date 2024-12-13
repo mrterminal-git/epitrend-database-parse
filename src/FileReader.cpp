@@ -575,7 +575,7 @@ void FileReader::parseRGADataFile(
     std::vector<RGAData::AMUBins> rga_object_bins = rga_data.getBins();
 
     // Add time-series data into RGAData object
-    for (const auto& AMUbin_object : rga_object_bins) {
+    for (auto& AMUbin_object : rga_object_bins) {
         std::cout << "Current bin: "; AMUbin_object.print();
         for (const auto& time_header_map : all_time_series_header_map) {
             // Extract the time and value from the time_series and header map
@@ -604,6 +604,11 @@ void FileReader::parseRGADataFile(
                 << ", " << current_input_value 
                 << "\n";
             }
+
+            // Set the GM for AMUbin_object
+            AMUbin_object.GM = GM;
+
+            // Add the data to the RGAData object
             rga_data.addData(AMUbin_object, current_input_unix_time, current_input_value);
         }
     }
