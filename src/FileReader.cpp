@@ -769,7 +769,7 @@ void FileReader::parseServerRGADataFile(
                 bin_stream << std::fixed << bin;
                 std::string bin_search = std::move(bin_stream).str();
                 if (time_header_map.second.find(bin_search) == time_header_map.second.end())
-                    throw std::runtime_error("Error parseRGADataFile function call: bin value not found in header map.");
+                    throw std::runtime_error("Error parseRGADataFile function call: bin value " + bin_search + " not found in header map.");
 
                 // Add the value to the current input value
                 current_input_value += stod(time_header_map.second.at(bin_search));

@@ -135,7 +135,8 @@ try {
 
 }
 
-// Check the current size of the epitrend binary data object
+// Check the current size of the RGA binary data object
+std::cout << time_now() << "Currently copying " + GM + " RGA data object into DB for " << year << "," << month << "," << day << "\n";
 std::cout << time_now() << "Current size of " + GM + " RGAData object: " << rga_data.getByteSize() << "\n";
 if (rga_data.getByteSize() > 0.1 * pow(10.0, 6.0) ) { // Limit INSERTS to ~10 mb packs
     std::cout << time_now() << "Curret " + GM + " RGA data object exceeded size limit -> inserting data into SQL DB and flushing object...\n";
@@ -165,7 +166,7 @@ if (rga_data.getByteSize() > 0.1 * pow(10.0, 6.0) ) { // Limit INSERTS to ~10 mb
     std::cout << "Approximate db size increased: " << db_entry_count * 100 << 
     " bytes" << " = " << db_entry_count * 100 / pow(10.0, 6.0) << " MB" << "\n";
     
-    // Flush the current epitrend data object
+    // Flush the current RGA data object
     rga_data.clearData();
 }    
 
@@ -183,39 +184,6 @@ const std::string& precision = "ms";
 const std::string& token = "142ce8c4d871f807e6f8c3c264afcb5588d7c82ecaad305d8fde09f3f5dec642";
 
 int main() {
-// // Testing AMUBins struct
-// std::vector<double> bins1 = {2.0, 0.5, 3.0};
-// std::vector<double> bins2 = {0.5, 2.0, 3.0};
-// std::vector<double> bins3 = {1.0, 2.0, 4.0};
-
-// RGAData::AMUBins amu_bins1(bins1);
-// RGAData::AMUBins amu_bins2(bins2);
-// RGAData::AMUBins amu_bins3(bins3);
-
-// std::cout << "AMUBins 1 == AMUBins 2: " << (amu_bins1 == amu_bins2) << "\n";
-// std::cout << "AMUBins 1 == AMUBins 3: " << (amu_bins1 == amu_bins3) << "\n";
-
-// // Create RGABins object
-// RGAData rga_data;
-// // rga_data.addData(amu_bins1, 1.0, 10.0);
-// // rga_data.addData(amu_bins1, 2.0, 20.0);
-// // rga_data.addData(amu_bins2, 1.0, 10.0);
-// // rga_data.addData(amu_bins2, 2.0, 20.0);
-// // rga_data.addData(amu_bins3, 1.0, 10.0);
-// // rga_data.addData(amu_bins3, 2.0, 20.0);
-
-// rga_data.printAllTimeSeriesData();
-
-// // Testing FileReader parseRGADataFile
-//     try {
-//         FileReader::parseRGADataFile(rga_data, "GM2", 2024, 12, 11, true);
-//     } catch (const std::exception& e) {
-//         std::cerr << e.what() << std::endl;
-//     }
-
-// // Print the data
-// rga_data.printFileAllTimeSeriesData("rga_data_test.log");
-
 // =====================START OF HISTORICAL RGA DATA INSERTION=====================
 
 // Create influx object
@@ -224,10 +192,15 @@ InfluxDatabase influx_db(host, port, org, bucket, user, password, precision, tok
 // Check the health of the connection
 influx_db.checkConnection(true);
 
-RGAData GM1_rga_data, GM2_rga_data, Cluster_rga_data;
+// Set integration limits and construct RGAData objects (e.g. integration_count = 4 => {+/-0.4}*Integer)
+const int& integration_count = 4;
+RGAData GM1_rga_data(integration_count), 
+GM2_rga_data(integration_count),
+Cluster_rga_data(integration_count);
+
 for(int year = 2024; year > 2019; --year){
-for(int month = 12; month > 0; --month) {
-for(int day = 31; day > 1; --day) {
+for(int month = 12; month > 11; --month) {
+for(int day = 12; day > 11; --day) {
     const auto copy_result_GM1 = copyRGADataToInflux(influx_db, GM1_rga_data, "GM1", year, month, day);
     const auto copy_result_GM2 = copyRGADataToInflux(influx_db, GM2_rga_data, "GM2", year, month, day);
     const auto copy_result_Cluster = copyRGADataToInflux(influx_db, Cluster_rga_data, "Cluster", year, month, day);
@@ -236,11 +209,12 @@ for(int day = 31; day > 1; --day) {
         std::cout << time_now() << "Error in copying data to influxDB\n";
         return -1;
     }
+    std::cout << "--------------------------------------------\n";
 }
 }
 }
 
-// =====================START OF HISTORICAL DATA INSERTION=====================
+// =====================START OF HISTORICAL EPITREND DATA INSERTION=====================
 
 // // Create influx object
 // InfluxDatabase influx_db(host, port, org, bucket, user, password, precision, token);
@@ -267,7 +241,7 @@ for(int day = 31; day > 1; --day) {
 // }
 // }
 
-// =====================START OF REAL-TIME DATA INSERTION=====================
+// =====================START OF REAL-TIME EPITREND DATA INSERTION=====================
 // const int sleep_seconds = 2;
 // const int max_reconnect_attempts = 100;
 

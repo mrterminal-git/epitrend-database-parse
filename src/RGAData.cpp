@@ -14,7 +14,7 @@ RGAData::RGAData() {
 }
 RGAData::RGAData(const int& bins_per_unit) {
     // Force that bins_per_unit must be less than 5
-    if (bins_per_unit > 4) {
+    if (bins_per_unit > 9) {
         throw std::runtime_error("Error in RGAData constructor: bins per unit must be less than 5");
     }
 
