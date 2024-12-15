@@ -1044,7 +1044,7 @@ bool InfluxDatabase::copyRGADataToBucket(RGAData data, bool verbose) {
             writeBatchData2({ns_write.write_query}, verbose);
 
             // Update the cache
-            sensor_names_to_ids[name] = std::to_string(valid_sensor_id);
+            sensor_names_to_ids[escapeSpecialChar(name)] = std::to_string(valid_sensor_id);
 
         } else {
             if(verbose) std::cout << "Entry found for sensor: " << name << "\n";
