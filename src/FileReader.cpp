@@ -466,8 +466,8 @@ void FileReader::parseRGADataFile(
     std::string pattern = oss.str();
 
     if (verbose) {
-        std::cout << "In parseRGADataFile call: constructed directory path: " << directory << std::endl;
-        std::cout << "In parseRGADataFile call: constructed regex pattern: " << pattern << std::endl;
+        std::cout << "In parseRGADataFile call: constructed directory path: " << directory << "\n";
+        std::cout << "In parseRGADataFile call: constructed regex pattern: " << pattern << "\n";
     }
 
     // Compile the regex pattern
@@ -489,7 +489,7 @@ void FileReader::parseRGADataFile(
             if (std::regex_match(filename, regex_pattern)) {
                 std::string fullpath = entry.path().string();
                 if (verbose) 
-                    std::cout << "In parseRGADataFile call: found matching file: " << fullpath << std::endl;
+                    std::cout << "In parseRGADataFile call: found matching file: " << fullpath << "\n";
 
                 // Open the file
                 std::ifstream file(fullpath);
@@ -646,8 +646,8 @@ void FileReader::parseServerRGADataFile(
     std::string pattern = oss.str();
 
     if (verbose) {
-        std::cout << "In parseRGADataFile call: constructed directory path: " << directory << std::endl;
-        std::cout << "In parseRGADataFile call: constructed regex pattern: " << pattern << std::endl;
+        std::cout << "In parseRGADataFile call: constructed directory path: " << directory << "\n";
+        std::cout << "In parseRGADataFile call: constructed regex pattern: " << pattern << "\n";
     }
 
     // Compile the regex pattern
@@ -669,7 +669,7 @@ void FileReader::parseServerRGADataFile(
             if (std::regex_match(filename, regex_pattern)) {
                 std::string fullpath = entry.path().string();
                 if (verbose) 
-                    std::cout << "In parseRGADataFile call: found matching file: " << fullpath << std::endl;
+                    std::cout << "In parseRGADataFile call: found matching file: " << fullpath << "\n";
 
                 // Open the file
                 std::ifstream file(fullpath);
@@ -762,19 +762,32 @@ void FileReader::parseServerRGADataFile(
 
             // Calculate the average of the bin values
             double current_input_value = 0.0;
+            int bin_counter = 0;
             for (const auto& bin : AMUbin_object.bins) {
                 // Extract the value from the time_series and header map
                 std::ostringstream bin_stream;
                 bin_stream.precision(2);
                 bin_stream << std::fixed << bin;
                 std::string bin_search = std::move(bin_stream).str();
-                if (time_header_map.second.find(bin_search) == time_header_map.second.end())
-                    throw std::runtime_error("Error parseRGADataFile function call: bin value " + bin_search + " not found in header map.");
-
+                if (time_header_map.second.find(bin_search) == time_header_map.second.end()) {
+                    if (verbose) std::cerr << "Warning parseRGADataFile function call: bin value " + bin_search + " not found in header map... excluding this value from the average.";
+                    continue;
+                }
                 // Add the value to the current input value
                 current_input_value += stod(time_header_map.second.at(bin_search));
+
+                // Increment bin counter
+                bin_counter++;
             }
-            current_input_value /= AMUbin_object.bins.size();
+            
+            // Check if any bins were successfully found
+            if (bin_counter == 0) {
+                // Do not add current value into the database
+                continue;
+            }
+
+            // Calculate the average
+            current_input_value /= static_cast<double> bin_counter;
             
             // Add the time-series data to the RGAData object
             if (verbose) {
