@@ -1044,7 +1044,7 @@ bool InfluxDatabase::copyRGADataToBucket(RGAData data, bool verbose) {
             writeBatchData2({ns_write.write_query}, verbose);
 
             // Update the cache
-            sensor_names_to_ids[escapeSpecialChar(name)] = std::to_string(valid_sensor_id);
+            sensor_names_to_ids[escapeSpecialChars(name)] = std::to_string(valid_sensor_id);
 
         } else {
             if(verbose) std::cout << "Entry found for sensor: " << name << "\n";
@@ -1061,15 +1061,23 @@ bool InfluxDatabase::copyRGADataToBucket(RGAData data, bool verbose) {
             .sensor_id = std::to_string(valid_sensor_id),
         };
 
+        // Define the stringstream for precision
+        std::ostringstream timestamp_stream;
+        timestamp_stream.precision(15);
+        timestamp_stream << std::fixed;
+        std::ostringstream num_stream;
+        num_stream.precision(15);
+        num_stream << std::fixed;
+
         // Loop through all the time-value pairs for the current name
         for (const auto& time_value : name_data_map.second) {
             // Prepare the ts write query
-            std::ostringstream num_stream;
-            num_stream << std::setprecision(15) << time_value.second;
+            num_stream.str("");
+            num_stream << time_value.second;
             ts_write.num = num_stream.str();
 
-            std::ostringstream timestamp_stream;
-            timestamp_stream << std::setprecision(15) << convertSecondsFromUnixToPrecisionFromUnix(time_value.first);
+            timestamp_stream.str("");
+            timestamp_stream << convertSecondsFromUnixToPrecisionFromUnix(time_value.first);
             ts_write.timestamp = timestamp_stream.str();
 
             ts_write.set_write_query();
@@ -1078,7 +1086,7 @@ bool InfluxDatabase::copyRGADataToBucket(RGAData data, bool verbose) {
             batch_data.push_back(ts_write.write_query);
 
             // Print query
-            if(verbose) std::cout << "Query: " << ts_write.write_query << "\n";
+            //if(verbose) std::cout << "Query: " << ts_write.write_query << "\n";
 
             if(batch_data.size() >= batchSize) {
                 // Write the time-value pair to the ts table

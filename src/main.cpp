@@ -145,6 +145,7 @@ if (rga_data.getByteSize() > 0.1 * pow(10.0, 6.0) ) { // Limit INSERTS to ~10 mb
     for (int i = 0; i < 100; ++i) {
         try {
             influx_db.copyRGADataToBucket(rga_data, false);
+            break;
         } catch (const std::exception& e) {
             std::cout << time_now() << "Error in copying " + GM + " RGA data to influxDB: " << e.what() << "\n Retrying...\n";
             std::cerr << e.what() << "\n";
@@ -198,9 +199,9 @@ RGAData GM1_rga_data(integration_count),
 GM2_rga_data(integration_count),
 Cluster_rga_data(integration_count);
 
-for(int year = 2024; year > 2019; --year){
-for(int month = 12; month > 11; --month) {
-for(int day = 12; day > 11; --day) {
+for(int year = 2024; year > 2022; --year){
+for(int month = 12; month > 0; --month) {
+for(int day = 31; day > 0; --day) {
     const auto copy_result_GM1 = copyRGADataToInflux(influx_db, GM1_rga_data, "GM1", year, month, day);
     const auto copy_result_GM2 = copyRGADataToInflux(influx_db, GM2_rga_data, "GM2", year, month, day);
     const auto copy_result_Cluster = copyRGADataToInflux(influx_db, Cluster_rga_data, "Cluster", year, month, day);
