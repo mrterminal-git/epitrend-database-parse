@@ -787,7 +787,7 @@ void FileReader::parseServerRGADataFile(
             }
 
             // Calculate the average
-            current_input_value /= static_cast<double> bin_counter;
+            current_input_value /= static_cast<double>(bin_counter);
             
             // Add the time-series data to the RGAData object
             if (verbose) {
