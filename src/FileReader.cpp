@@ -632,7 +632,7 @@ void FileReader::parseServerRGADataFile(
 
     // Check if the directory exists
     if (!fs::exists(directory) || !fs::is_directory(directory)) {
-        throw std::runtime_error("Error parseRGADataFile function call:"
+        throw std::runtime_error("Error parseServerRGADataFile function call:"
         " Directory does not exist: " 
         + directory);
     }
@@ -646,8 +646,8 @@ void FileReader::parseServerRGADataFile(
     std::string pattern = oss.str();
 
     if (verbose) {
-        std::cout << "In parseRGADataFile call: constructed directory path: " << directory << "\n";
-        std::cout << "In parseRGADataFile call: constructed regex pattern: " << pattern << "\n";
+        std::cout << "In parseServerRGADataFile call: constructed directory path: " << directory << "\n";
+        std::cout << "In parseServerRGADataFile call: constructed regex pattern: " << pattern << "\n";
     }
 
     // Compile the regex pattern
@@ -661,7 +661,7 @@ void FileReader::parseServerRGADataFile(
 
 
     if (verbose) 
-        std::cout << "In parseRGADataFile call: searching for"
+        std::cout << "In parseServerRGADataFile call: searching for"
         " matching files in directory: " << directory << "\n";
     for (const auto& entry : fs::directory_iterator(directory)) {
         if (fs::is_regular_file(entry.path())) {
@@ -669,12 +669,12 @@ void FileReader::parseServerRGADataFile(
             if (std::regex_match(filename, regex_pattern)) {
                 std::string fullpath = entry.path().string();
                 if (verbose) 
-                    std::cout << "In parseRGADataFile call: found matching file: " << fullpath << "\n";
+                    std::cout << "In parseServerRGADataFile call: found matching file: " << fullpath << "\n";
 
                 // Open the file
                 std::ifstream file(fullpath);
                 if (!file.is_open()) {
-                    throw std::runtime_error("Error parseRGADataFile function call:"
+                    throw std::runtime_error("Error parseServerRGADataFile function call:"
                     " Could not open file: " + fullpath);
                 }
 
@@ -693,13 +693,13 @@ void FileReader::parseServerRGADataFile(
     
     // Throw an error if no matching file is found
     if (!file_found) {
-        throw std::runtime_error("Error parseRGADataFile function call:"
+        throw std::runtime_error("Error parseServerRGADataFile function call:"
         " No matching file found for pattern: " + pattern);
     }
 
     // Ensure the data file has a headers row
     if (lines.empty()) {
-        throw std::runtime_error("Error parseRGADataFile function call: Data file is empty.");
+        throw std::runtime_error("Error parseServerRGADataFile function call: Data file is empty.");
     }
 
     // Find the header row
@@ -712,7 +712,7 @@ void FileReader::parseServerRGADataFile(
 
     // Throw an error if no header row is found
     if (header_row_index == lines.size()) {
-        throw std::runtime_error("Error parseRGADataFile function call: No header row found in the data file.");
+        throw std::runtime_error("Error parseServerRGADataFile function call: No header row found in the data file.");
     }
 
     // Process the headers row
@@ -734,7 +734,7 @@ void FileReader::parseServerRGADataFile(
 
         // Check that the numbers of headers and the current line match
         if (current_row.size() != headers.size())
-            throw std::runtime_error("Error parseRGADataFile function call: Number of headers and row entries do not match.");
+            throw std::runtime_error("Error parseServerRGADataFile function call: Number of headers and row entries do not match.");
         
         // Map the headers to the current row entries
         // THIS ASSUMES THAT THE UNIX TIME IS THE SECOND ENTRY IN THE ROW
@@ -742,8 +742,8 @@ void FileReader::parseServerRGADataFile(
         try {
             unix_time = std::stod(current_row.at(1));
         } catch (const std::exception& e) {
-            if (verbose) std::cerr << "Error parseRGADataFile function call: error parsing unix time: " << e.what() << "\n";
-            throw std::runtime_error("Error parseRGADataFile function call: Error parsing unix time");
+            if (verbose) std::cerr << "Error parseServerRGADataFile function call: error parsing unix time: " << e.what() << "\n";
+            throw std::runtime_error("Error parseServerRGADataFile function call: Error parsing unix time");
         }
         for (size_t j = 0; j < headers.size(); ++j) {
             all_time_series_header_map[unix_time][headers.at(j)] = current_row.at(j);
@@ -770,7 +770,7 @@ void FileReader::parseServerRGADataFile(
                 bin_stream << std::fixed << bin;
                 std::string bin_search = std::move(bin_stream).str();
                 if (time_header_map.second.find(bin_search) == time_header_map.second.end()) {
-                    if (verbose) std::cerr << "Warning parseRGADataFile function call: bin value " + bin_search + " not found in header map... excluding this value from the average.";
+                    if (verbose) std::cerr << "Warning parseServerRGADataFile function call: bin value " + bin_search + " not found in header map... excluding this value from the average.";
                     continue;
                 }
                 // Add the value to the current input value
