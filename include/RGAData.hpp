@@ -91,7 +91,7 @@ public:
 
 public:
     // Constructors
-    RGAData();
+    RGAData() = default;
     RGAData(const int& bins_per_unit);
 
     // Getters and Setters
@@ -104,6 +104,8 @@ public:
     void printAllTimeSeriesData();
     void printFileAllTimeSeriesData(const std::string& filename);
     void clearData();
+    RGAData difference(const RGAData& other) const;
+    bool is_empty() const;
 
 private:
     std::unordered_map<AMUBins, std::unordered_map<double, double>, AMUBinsHash> allTimeSeriesData;

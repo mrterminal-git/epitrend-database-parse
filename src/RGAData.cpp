@@ -1,17 +1,6 @@
 #include "RGAData.hpp"
 
-// Default constructor
-RGAData::RGAData() {
-    // Initialize bins around integers 1 to 99
-    for (int i = 1; i <= 99; ++i) {
-        std::vector<double> bin_values;
-        for (double j = -0.4; j <= 0.4; j += 0.1) {
-            bin_values.push_back(i + j);
-        }
-        AMUBins amubins(bin_values);
-        allTimeSeriesData[amubins] = std::unordered_map<double, double>();
-    }
-}
+// Constructor with bins per unit
 RGAData::RGAData(const int& bins_per_unit) {
     // Force that bins_per_unit must be less than 5
     if (bins_per_unit > 9) {
@@ -93,4 +82,26 @@ void RGAData::printFileAllTimeSeriesData(const std::string& filename) {
             outFile << inner_element.first << "," << inner_element.second << "\n";
         }
     }
+}
+
+RGAData RGAData::difference(const RGAData& other) const {
+    const auto& other_data = other.getAllTimeSeriesData();
+    RGAData diff_data;
+    for(const auto& element : allTimeSeriesData){
+        AMUBins name = element.first;
+        std::unordered_map<double,double> time_series = element.second;
+        for(auto inner_element : time_series){
+            double time = inner_element.first;
+            double value = inner_element.second;
+            if(other_data.find(name) == other_data.end() || other_data.at(name).find(time) == other_data.at(name).end()){
+                diff_data.addData(name, time, value); // Pass AMUBins type directly
+            }
+        }
+    }
+
+    return diff_data;
+}
+
+bool RGAData::is_empty() const {
+    return allTimeSeriesData.empty();
 }
