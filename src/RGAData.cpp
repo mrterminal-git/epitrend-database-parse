@@ -88,13 +88,13 @@ RGAData RGAData::difference(const RGAData& other) const {
     const auto& other_data = other.getAllTimeSeriesData();
     RGAData diff_data;
     for(const auto& element : allTimeSeriesData){
-        AMUBins name = element.first;
+        AMUBins amubin = element.first;
         std::unordered_map<double,double> time_series = element.second;
         for(auto inner_element : time_series){
             double time = inner_element.first;
             double value = inner_element.second;
-            if(other_data.find(name) == other_data.end() || other_data.at(name).find(time) == other_data.at(name).end()){
-                diff_data.addData(name, time, value); // Pass AMUBins type directly
+            if(other_data.find(amubin) == other_data.end() || other_data.at(amubin).find(time) == other_data.at(amubin).end()){
+                diff_data.addData(amubin, time, value); // Pass AMUBins type directly
             }
         }
     }

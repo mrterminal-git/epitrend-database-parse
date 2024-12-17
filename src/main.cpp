@@ -178,47 +178,230 @@ return 1;
 const std::string& org = "au-mbe-eng";
 const std::string& host = "127.0.0.1";
 const int port = 8086;
-const std::string& bucket = "MBE_BMS_3";
+const std::string& rga_bucket = "RGA";
+const std::string& epitrend_bucket = "EPITREND";
 const std::string& user = "";
 const std::string& password = "";
 const std::string& precision = "ms";
 const std::string& token = "142ce8c4d871f807e6f8c3c264afcb5588d7c82ecaad305d8fde09f3f5dec642";
 
 int main() {
-// =====================START OF HISTORICAL RGA DATA INSERTION=====================
+// =====================START OF REAL-TIME RGA DATA INSERTION=====================
+const int& parse_error_sleep_seconds = 1;
+const int& sleep_seconds = 2;  //60 seconds * 60 minutes = 1 hour
+const int& max_reconnect_attempts = 100;
+const int& integration_count = 4;
 
-// Create influx object
-InfluxDatabase influx_db(host, port, org, bucket, user, password, precision, token);
+std::thread testThread(test_thread);
+
+// Connect influxDB connection
+InfluxDatabase influx_db(host, port, org, rga_bucket, user, password, precision, token);
 
 // Check the health of the connection
 influx_db.checkConnection(true);
 
-// Set integration limits and construct RGAData objects (e.g. integration_count = 4 => {+/-0.4}*Integer)
-const int& integration_count = 4;
-RGAData GM1_rga_data(integration_count), 
-GM2_rga_data(integration_count),
-Cluster_rga_data(integration_count);
+// Update the database real-time - every second
+RGAData previous_RGA_data_GM1(integration_count), previous_RGA_data_GM2(integration_count),
+previous_RGA_data_Cluster(integration_count),
+current_RGA_data_GM1(integration_count), current_RGA_data_GM2(integration_count),
+current_RGA_data_Cluster(integration_count),
+difference_RGA_data_GM1, difference_RGA_data_GM2,
+difference_RGA_data_Cluster;
 
-for(int year = 2024; year > 2022; --year){
-for(int month = 12; month > 0; --month) {
-for(int day = 31; day > 0; --day) {
-    const auto copy_result_GM1 = copyRGADataToInflux(influx_db, GM1_rga_data, "GM1", year, month, day);
-    const auto copy_result_GM2 = copyRGADataToInflux(influx_db, GM2_rga_data, "GM2", year, month, day);
-    const auto copy_result_Cluster = copyRGADataToInflux(influx_db, Cluster_rga_data, "Cluster", year, month, day);
-    if (copy_result_GM1 < 0 || copy_result_GM2 < 0 || copy_result_Cluster < 0)
-    {
-        std::cout << time_now() << "Error in copying data to influxDB\n";
-        return -1;
+while (true) {
+std::cout << time_now() << "Updating database in real-time...\n";
+
+// Grab the current year, month, day, and hour
+auto now = std::chrono::system_clock::now();
+std::time_t now_time = std::chrono::system_clock::to_time_t(now);
+std::tm* now_tm = std::localtime(&now_time);
+int year = now_tm->tm_year + 1900;
+int month = now_tm->tm_mon + 1;
+int day = now_tm->tm_mday - 1;
+int hour = now_tm->tm_hour;
+
+std::cout << time_now() << "Processing RGA data for: " << year << "," << month << "," << day << "\n";
+
+// Load the entire week's RGA data into RGAData object
+for(int loop_day = day; loop_day > day - 7; --loop_day) {
+    int loop_month = month;
+    int loop_year = year;
+    // Update month if day is less than 1
+    if (loop_day < 1) {
+        loop_day = 31;
+        loop_month -= 1;
+        if (month < 1) {
+            loop_month = 12;
+            loop_year -= 1;
+        }
     }
-    std::cout << "--------------------------------------------\n";
+
+    // Parse GM1 RGA Data
+    try {
+        FileReader::parseServerRGADataFile(current_RGA_data_GM1, "GM1", loop_year, loop_month, loop_day, false);
+        std::cout << time_now() << "Parsed GM1 RGA data file for: " << loop_year << "," << loop_month << "," << loop_day << "\n";
+    } catch (std::exception& e) {
+        std::cout << time_now() << "Warning during parsing GM1 RGA data file for " << loop_year << "," << loop_month << "," << loop_day << ": " << e.what() << "\n";
+        std::this_thread::sleep_for(std::chrono::seconds(parse_error_sleep_seconds));
+    }
+
+    // Parse GM2 RGA Data
+    try {
+        FileReader::parseServerRGADataFile(current_RGA_data_GM2, "GM2", loop_year, loop_month, loop_day, false);
+        std::cout << time_now() << "Parsed GM2 RGA data file for: " << loop_year << "," << loop_month << "," << loop_day << "\n";
+    } catch (std::exception& e) {
+        std::cout << time_now() << "Warning during parsing GM2 RGA data file for " << loop_year << "," << loop_month << "," << loop_day << ": " << e.what() << "\n";
+        std::this_thread::sleep_for(std::chrono::seconds(parse_error_sleep_seconds));
+    }
+
+    // Parse Cluster RGA Data
+    try {
+        FileReader::parseServerRGADataFile(current_RGA_data_Cluster, "Cluster", loop_year, loop_month, loop_day, false);
+        std::cout << time_now() << "Parsed Cluster RGA data file for: " << loop_year << "," << loop_month << "," << loop_day << "\n";
+    } catch (std::exception& e) {
+        std::cout << time_now() << "Warning during parsing Cluster RGA data file for " << loop_year << "," << loop_month << "," << loop_day << ": " << e.what() << "\n";
+        std::this_thread::sleep_for(std::chrono::seconds(parse_error_sleep_seconds));
+    }
 }
+
+// Find the difference between the previous and current data
+difference_RGA_data_GM1 = current_RGA_data_GM1.difference(previous_RGA_data_GM1);
+difference_RGA_data_GM2 = current_RGA_data_GM2.difference(previous_RGA_data_GM2);
+difference_RGA_data_Cluster = current_RGA_data_Cluster.difference(previous_RGA_data_Cluster);
+
+// Copy the difference data to the influxDB
+if(!difference_RGA_data_GM1.is_empty()) {
+    // Try to copy the data to influxDB with max_reconnect_attempts retries
+    for(int i = 0; i < max_reconnect_attempts; ++i) {
+        try {    
+            std::cout << time_now() << "Found difference data for GM1... copying the following data into influxDB: \n";            
+            influx_db.copyRGADataToBucket(difference_RGA_data_GM1, false);
+            
+            break;  
+        
+        } catch (std::exception& e) {
+            std::cout << time_now() << "Error in copying GM1 RGA data to influxDB: " << e.what() << "\n Retrying...\n";
+            if (i == max_reconnect_attempts) {
+                std::cout << time_now() << "Failed to copy GM1 RGA data to influxDB after " << max_reconnect_attempts << " tries\n";
+                return -1;
+            }
+                        
+            // Pause
+            std::this_thread::sleep_for(std::chrono::seconds(sleep_seconds));
+
+        }
+    }
 }
+else {
+    std::cout << time_now() << "No difference data found for GM1\n";
 }
+if(!difference_RGA_data_GM2.is_empty()) {
+        // Try to copy the data to influxDB with 100 retries
+    for(int i = 0; i < max_reconnect_attempts; ++i) {
+        try {    
+            std::cout << time_now() << "Found difference data for GM2... copying the following data into influxDB: \n";
+            influx_db.copyRGADataToBucket(difference_RGA_data_GM2, false);
+            
+            break;
+             
+        } catch (std::exception& e) {
+            std::cout << time_now() << "Error in copying GM2 data to influxDB: " << e.what() << "\n Retrying...\n";
+            if (i == max_reconnect_attempts) {
+                std::cout << time_now() << "Failed to copy GM2 data to influxDB after " << max_reconnect_attempts << " tries\n";
+                return -1;
+            }
+                        
+            // Pause
+            std::this_thread::sleep_for(std::chrono::seconds(sleep_seconds));
+
+        }
+    }
+} else {
+    std::cout << time_now() << "No difference data found for GM2\n";
+}
+if(!difference_RGA_data_Cluster.is_empty()) {
+    // Try to copy the data to influxDB with 100 retries
+    for(int i = 0; i < max_reconnect_attempts; ++i) {
+        try {    
+            std::cout << time_now() << "Found difference data for Cluster... copying the following data into influxDB: \n";
+            influx_db.copyRGADataToBucket(difference_RGA_data_Cluster, false);
+            
+            break;
+             
+        } catch (std::exception& e) {
+            std::cout << time_now() << "Error in copying Cluster data to influxDB: " << e.what() << "\n Retrying...\n";
+            if (i == max_reconnect_attempts) {
+                std::cout << time_now() << "Failed to copy Cluster data to influxDB after " << max_reconnect_attempts << " tries\n";
+                return -1;
+            }
+                        
+            // Pause
+            std::this_thread::sleep_for(std::chrono::seconds(sleep_seconds));
+
+        }
+    }
+} else {
+    std::cout << time_now() << "No difference data found for Cluster\n";
+}
+
+// Reset RGA data
+previous_RGA_data_GM1 = current_RGA_data_GM1;
+previous_RGA_data_GM2 = current_RGA_data_GM2;
+previous_RGA_data_Cluster = current_RGA_data_Cluster;
+
+current_RGA_data_GM1.clearData();
+current_RGA_data_GM2.clearData();
+current_RGA_data_Cluster.clearData();
+
+// Flush all data from RGA data object if hour has changed
+now = std::chrono::system_clock::now();
+now_time = std::chrono::system_clock::to_time_t(now);
+now_tm = std::localtime(&now_time);
+if (now_tm->tm_hour != hour) {
+    previous_RGA_data_GM1.clearData();
+    previous_RGA_data_GM2.clearData();
+    previous_RGA_data_Cluster.clearData();
+}
+
+std::cout << time_now() << "Sleeping for " << sleep_seconds << " seconds...\n";
+std::this_thread::sleep_for(std::chrono::seconds(sleep_seconds));
+
+}
+
+// =====================START OF HISTORICAL RGA DATA INSERTION=====================
+
+// // Create influx object
+// InfluxDatabase influx_db(host, port, org, rga_bucket, user, password, precision, token);
+
+// // Check the health of the connection
+// influx_db.checkConnection(true);
+
+// // Set integration limits and construct RGAData objects (e.g. integration_count = 4 => {+/-0.4}*Integer)
+// const int& integration_count = 4;
+// RGAData GM1_rga_data(integration_count), 
+// GM2_rga_data(integration_count),
+// Cluster_rga_data(integration_count);
+
+// for(int year = 2024; year > 2022; --year){
+// for(int month = 12; month > 0; --month) {
+// for(int day = 31; day > 0; --day) {
+//     const auto copy_result_GM1 = copyRGADataToInflux(influx_db, GM1_rga_data, "GM1", year, month, day);
+//     const auto copy_result_GM2 = copyRGADataToInflux(influx_db, GM2_rga_data, "GM2", year, month, day);
+//     const auto copy_result_Cluster = copyRGADataToInflux(influx_db, Cluster_rga_data, "Cluster", year, month, day);
+//     if (copy_result_GM1 < 0 || copy_result_GM2 < 0 || copy_result_Cluster < 0)
+//     {
+//         std::cout << time_now() << "Error in copying data to influxDB\n";
+//         return -1;
+//     }
+//     std::cout << "--------------------------------------------\n";
+// }
+// }
+// }
 
 // =====================START OF HISTORICAL EPITREND DATA INSERTION=====================
 
 // // Create influx object
-// InfluxDatabase influx_db(host, port, org, bucket, user, password, precision, token);
+// InfluxDatabase influx_db(host, port, org, epitrend_bucket, user, password, precision, token);
 
 // // Check the health of the connection
 // influx_db.checkConnection(true);
@@ -247,7 +430,7 @@ for(int day = 31; day > 0; --day) {
 // const int max_reconnect_attempts = 100;
 
 // // Connect influxDB connection
-// InfluxDatabase influx_db(host, port, org, bucket, user, password, precision, token);
+// InfluxDatabase influx_db(host, port, org, epitrend_bucket, user, password, precision, token);
 
 // // Check the health of the connection
 // influx_db.checkConnection(true);
