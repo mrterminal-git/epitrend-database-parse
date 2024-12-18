@@ -40,6 +40,7 @@
 #include "influxdb.hpp"
 #include "RGAData.hpp"
 #include <curl/curl.h>
+#include <future>
 
 std::string time_now() {
     auto now = std::chrono::system_clock::now();
@@ -185,7 +186,7 @@ const std::string& password = "";
 const std::string& precision = "ms";
 const std::string& token = "142ce8c4d871f807e6f8c3c264afcb5588d7c82ecaad305d8fde09f3f5dec642";
 
-void processRealTimeRGAData() {
+void processRealTimeRGAData(std::promise<void> exitSignal) {
     try{
         const int& parse_error_sleep_seconds = 1;
         const int& sleep_seconds = 2;  //60 seconds * 60 minutes = 1 hour
@@ -366,14 +367,20 @@ void processRealTimeRGAData() {
 
         }
 
+        exitSignal.set_value();
+
     } catch (const std::exception& e) {
         std::cerr << "Exception in processRealTimeRGAData: " << e.what() << std::endl;
+        exitSignal.set_exception(std::current_exception());
+
     } catch (...) {
         std::cerr << "Unknown exception in processRealTimeRGAData" << std::endl;
+        exitSignal.set_exception(std::current_exception());
+
     }
 }
 
-void processHistoricalRGAData() {  
+void processHistoricalRGAData(std::promise<void> exitSignal) {  
     try{  
         // Create influx object
         InfluxDatabase influx_db(host, port, org, rga_bucket, user, password, precision, token);
@@ -402,14 +409,21 @@ void processHistoricalRGAData() {
         }
         }
         }
+        
+        exitSignal.set_value();
+
     } catch (const std::exception& e) {
         std::cerr << "Exception in processHistoricalRGAData: " << e.what() << std::endl;
+        exitSignal.set_exception(std::current_exception());
+
     } catch (...) {
         std::cerr << "Unknown exception in processHistoricalRGAData" << std::endl;
+        exitSignal.set_exception(std::current_exception());
+
     }
 }
 
-void processHistoricalEpitrendData() {
+void processHistoricalEpitrendData(std::promise<void> exitSignal) {
     try {
         // Create influx object
         InfluxDatabase influx_db(host, port, org, epitrend_bucket, user, password, precision, token);
@@ -435,16 +449,22 @@ void processHistoricalEpitrendData() {
         }
         }
         }
+        
+        exitSignal.set_value();
 
     } catch (const std::exception& e) {
         std::cerr << "Exception in processHistoricalEpitrendData: " << e.what() << std::endl;
+        exitSignal.set_exception(std::current_exception());
+
     } catch (...) {
         std::cerr << "Unknown exception in processHistoricalEpitrendData" << std::endl;
+        exitSignal.set_exception(std::current_exception());
+
     }
 
 }
 
-void processRealTimeEpitrendData() {
+void processRealTimeEpitrendData(std::promise<void> exitSignal) {
     const int& sleep_seconds = 10;
     const int& max_reconnect_attempts = 100;
 
@@ -461,7 +481,7 @@ void processRealTimeEpitrendData() {
         difference_binary_data_GM1, difference_binary_data_GM2;
 
         while (true) {
-        std::cout << time_now() << "Updating database in real-time...\n";
+        std::cout << time_now() << "processRealTimeEpitrendData|| " << "Updating database in real-time...\n";
 
         // Grab the current year, month, day, and hour
         auto now = std::chrono::system_clock::now();
@@ -472,14 +492,14 @@ void processRealTimeEpitrendData() {
         int day = now_tm->tm_mday;
         int hour = now_tm->tm_hour;
 
-        std::cout << time_now() << "Processing data for: " << year << "," << month << "," << day << "," << hour << "\n";
+        std::cout << time_now() << "processRealTimeEpitrendData|| " << "Processing data for: " << year << "," << month << "," << day << "," << hour << "\n";
 
         // Load the epitrend binary data into binary object
         try {
             FileReader::parseServerEpitrendBinaryDataFile(current_binary_data_GM1, "GM1", year, month, day, hour, false);
             FileReader::parseServerEpitrendBinaryDataFile(current_binary_data_GM2, "GM2", year, month, day, hour, false);
         } catch (std::exception& e) {
-            std::cout << time_now() << "No epitrend data file found for: " << year << "," << month << "," << day << "," << hour << "\n" << e.what() << "\n";
+            std::cout << time_now() << "processRealTimeEpitrendData|| " << "No epitrend data file found for: " << year << "," << month << "," << day << "," << hour << "\n" << e.what() << "\n";
             std::this_thread::sleep_for(std::chrono::seconds(sleep_seconds));
             continue;
         }
@@ -493,7 +513,7 @@ void processRealTimeEpitrendData() {
             // Try to copy the data to influxDB with max_reconnect_attempts retries
             for(int i = 0; i < max_reconnect_attempts; ++i) {
                 try {    
-                    std::cout << time_now() << "Found difference data for GM1... copying the following data into influxDB: \n";
+                    std::cout << time_now() << "processRealTimeEpitrendData|| " << "Found difference data for GM1... copying the following data into influxDB: \n";
                     // difference_binary_data_GM1.printAllTimeSeriesData();
                     
                     influx_db.copyEpitrendToBucket2(difference_binary_data_GM1, false);
@@ -501,9 +521,9 @@ void processRealTimeEpitrendData() {
                     break;  
                 
                 } catch (std::exception& e) {
-                    std::cout << time_now() << "Error in copying GM1 data to influxDB: " << e.what() << "\n Retrying...\n";
+                    std::cout << time_now() << "processRealTimeEpitrendData|| " << "Error in copying GM1 data to influxDB: " << e.what() << "\n Retrying...\n";
                     if (i == max_reconnect_attempts) {
-                        std::cout << time_now() << "Failed to copy GM1 data to influxDB after " << max_reconnect_attempts << " tries\n";
+                        std::cout << time_now() << "processRealTimeEpitrendData|| " << "Failed to copy GM1 data to influxDB after " << max_reconnect_attempts << " tries\n";
                         exit(-1);
                     }
                                 
@@ -517,7 +537,7 @@ void processRealTimeEpitrendData() {
             // Try to copy the data to influxDB with 100 retries
             for(int i = 0; i < max_reconnect_attempts; ++i) {
                 try {    
-                    std::cout << time_now() << "Found difference data for GM2... copying the following data into influxDB: \n";
+                    std::cout << time_now() << "processRealTimeEpitrendData|| " << "Found difference data for GM2... copying the following data into influxDB: \n";
                     // difference_binary_data_GM2.printAllTimeSeriesData();
 
                     influx_db.copyEpitrendToBucket2(difference_binary_data_GM2, false);
@@ -525,9 +545,9 @@ void processRealTimeEpitrendData() {
                     break;
                     
                 } catch (std::exception& e) {
-                    std::cout << time_now() << "Error in copying GM2 data to influxDB: " << e.what() << "\n Retrying...\n";
+                    std::cout << time_now() << "processRealTimeEpitrendData|| " << "Error in copying GM2 data to influxDB: " << e.what() << "\n Retrying...\n";
                     if (i == max_reconnect_attempts) {
-                        std::cout << time_now() << "Failed to copy GM2 data to influxDB after " << max_reconnect_attempts << " tries\n";
+                        std::cout << time_now() << "processRealTimeEpitrendData|| " << "Failed to copy GM2 data to influxDB after " << max_reconnect_attempts << " tries\n";
                         exit(-1);
                     }
                                 
@@ -558,32 +578,59 @@ void processRealTimeEpitrendData() {
 
         }
 
+        exitSignal.set_value();
+
     } catch (const std::exception& e) {
         std::cerr << "Exception in processRealTimeEpitrendData: " << e.what() << std::endl;
+        exitSignal.set_exception(std::current_exception());
+    
     } catch (...) {
         std::cerr << "Unknown exception in processRealTimeEpitrendData" << std::endl;
+        exitSignal.set_exception(std::current_exception());
+
     }
 }
 
 int main() {
-// =====================START OF REAL-TIME RGA DATA INSERTION=====================
-std::thread threadRealTimeRGADataToInflux(processRealTimeRGAData);
+    // Create promises and futures for each thread
+    std::promise<void> promiseRealTimeRGA, promiseHistoricalRGA, promiseHistoricalEpitrend, promiseRealTimeEpitrend;
+    std::future<void> futureRealTimeRGA = promiseRealTimeRGA.get_future();
+    std::future<void> futureHistoricalRGA = promiseHistoricalRGA.get_future();
+    std::future<void> futureHistoricalEpitrend = promiseHistoricalEpitrend.get_future();
+    std::future<void> futureRealTimeEpitrend = promiseRealTimeEpitrend.get_future();
 
-// =====================START OF HISTORICAL RGA DATA INSERTION=====================
-std::thread threadHistoricalRGADataToInflux(processHistoricalRGAData);
+    // Create and start threads
+    std::thread threadRealTimeRGADataToInflux(processRealTimeRGAData, std::move(promiseRealTimeRGA));
+    std::thread threadHistoricalRGADataToInflux(processHistoricalRGAData, std::move(promiseHistoricalRGA));
+    std::thread threadHistoricalEpitrendDataToInflux(processHistoricalEpitrendData, std::move(promiseHistoricalEpitrend));
+    std::thread threadRealTimeEpitrendDataToInflux(processRealTimeEpitrendData, std::move(promiseRealTimeEpitrend));
 
-// =====================START OF HISTORICAL EPITREND DATA INSERTION=====================
-std::thread threadHistoricalEpitrendDataToInflux(processHistoricalEpitrendData);
+    // Monitor the futures to detect when threads have stopped running
+    std::vector<std::future<void>*> futures = {&futureRealTimeRGA, &futureHistoricalRGA, &futureHistoricalEpitrend, &futureRealTimeEpitrend};
+    while (!futures.empty()) {
+        for (auto it = futures.begin(); it != futures.end();) {
+            std::future_status status = (*it)->wait_for(std::chrono::milliseconds(100));
+            if (status == std::future_status::ready) {
+                try {
+                    (*it)->get(); // Check for exceptions
+                    std::cout << "Thread completed successfully.\n";
+                } catch (const std::exception& e) {
+                    std::cerr << "Thread exited with exception: " << e.what() << std::endl;
+                    exit(-1);
+                }
+                it = futures.erase(it); // Remove the future from the list
+            } else {
+                ++it;
+            }
+        }
+    }
 
-// =====================START OF REAL-TIME EPITREND DATA INSERTION=====================
-// const int sleep_seconds = 2;
-// const int max_reconnect_attempts = 100;
-std::thread threadRealTimeEpitrendDataToInflux(processRealTimeEpitrendData);
+    // Join all threads
+    threadRealTimeRGADataToInflux.join();
+    threadHistoricalRGADataToInflux.join();
+    threadHistoricalEpitrendDataToInflux.join();
+    threadRealTimeEpitrendDataToInflux.join();
 
-threadRealTimeRGADataToInflux.join();
-threadHistoricalRGADataToInflux.join();
-threadHistoricalEpitrendDataToInflux.join();
-threadRealTimeEpitrendDataToInflux.join();
 
 return 0;
 }
