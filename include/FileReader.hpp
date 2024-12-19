@@ -2,21 +2,78 @@
 #define FILEREADER_HPP
 
 #include <sstream>
+#include <regex>
 #include "Common.hpp"
+#include "EpitrendBinaryFormat.hpp"
+#include "EpitrendBinaryData.hpp"
+#include "RGAData.hpp"
 
 class FileReader {
 public:
-    // Static method to load data from a file into a Stock object
-    // static bool loadStockDataFromFile(const std::string& filename, Stock& stock);
-	
-	// Static method to load NYSE stock listing from a file
-    static std::vector<std::string> readNYSEListings(const std::string& filename);
-
     // Public static method if you want to access it from other classes
     static std::string trim(const std::string& str);
 
-    // Test function
-    static void testFunction();
+    // Parse the Epitrend binary format file
+    static EpitrendBinaryFormat parseEpitrendBinaryFormatFile(
+        std::string GM,
+        int year, 
+        int month, 
+        int day, 
+        int hour, 
+        bool verbose
+    );
+   
+    // Parse the Epitrend binary data file
+    static void parseEpitrendBinaryDataFile(
+        EpitrendBinaryData& binary_data,
+        std::string GM,
+        int year,
+        int month,
+        int day,
+        int hour,
+        bool verbose
+    );
+
+    // Parse the server Epitrend binary format file
+    static EpitrendBinaryFormat parseServerEpitrendBinaryFormatFile(
+        std::string GM,
+        int year, 
+        int month, 
+        int day, 
+        int hour, 
+        bool verbose
+    );
+   
+    // Parse the server Epitrend binary data file
+    static void parseServerEpitrendBinaryDataFile(
+        EpitrendBinaryData& binary_data,
+        std::string GM,
+        int year,
+        int month,
+        int day,
+        int hour,
+        bool verbose
+    );
+
+    // Parse the RGA data file
+    static void parseRGADataFile(
+        RGAData& rga_data,
+        std::string GM,
+        int year,
+        int month,
+        int day,
+        bool verbose
+    );
+
+    // Parse the server RGA data file
+    static void parseServerRGADataFile(
+        RGAData& rga_data,
+        std::string GM,
+        int year,
+        int month,
+        int day,
+        bool verbose
+    );
 
 private:
 	// Internal use of trimming
@@ -36,6 +93,7 @@ private:
 
         return tokens;
     }
+
 };
 
 #endif // FILEREADER_H

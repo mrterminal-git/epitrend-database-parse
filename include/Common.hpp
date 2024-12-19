@@ -2,6 +2,7 @@
 #define COMMON_HPP
 
 #include <iostream>
+#include <iomanip>
 #include <string>
 #include <stdexcept>
 #include <unordered_map>
@@ -13,12 +14,16 @@
 #include <fstream>
 #include <cstdlib> 
 #include <functional>
-//#include <filesystem>
+#include <filesystem>
 #include <tuple>
 #include <exception>
+#include <locale>
+#include <sstream>
+#include <memory>
+#include <thread>
+#include <chrono>
+#include <set>
 
 #include "Config.hpp"
-#include "FileReader.hpp"
-#include "EpitrendBinaryFormat.hpp"
 
 #endif // COMMON_HPP

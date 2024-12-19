@@ -1,78 +1,8 @@
 #include "FileReader.hpp"
 
-// bool FileReader::loadStockDataFromFile(const std::string& filename, Stock& stock) {
-//     std::ifstream file(filename);
-//     if (!file.is_open()) {
-//         std::cerr << "Could not open the file: " << filename << "\n";
-//         return false;
-//     }
+namespace fs = std::filesystem;
 
-//     std::string line;
-//     int lineNumber = 0; // Keep track of the line number for error messages
-
-//     while (std::getline(file, line)) {
-//         lineNumber++;
-//         std::istringstream iss(line);
-//         std::string date, adjClose, close, high, low, open, volume;
-
-//         // Read each expected field from the line
-//         if (std::getline(iss, date, ',') && 
-//             std::getline(iss, open, ',') &&
-//             std::getline(iss, high, ',') &&
-//             std::getline(iss, low, ',') &&
-//             std::getline(iss, close, ',') &&
-//             std::getline(iss, adjClose, ',') &&
-//             std::getline(iss, volume)) {
-            
-// 			// Trim date string
-// 			date = trimInternal(date);
-//             try {
-//                 // Convert and add data only if conversion is successful
-//                 stock.addData(date, "adj close", std::stod(adjClose));
-//                 stock.addData(date, "close", std::stod(close));
-//                 stock.addData(date, "high", std::stod(high));
-//                 stock.addData(date, "low", std::stod(low));
-//                 stock.addData(date, "open", std::stod(open));
-//                 stock.addData(date, "volume", std::stod(volume));
-//             } catch (const std::invalid_argument& e) {
-//                 std::cerr << "Warning FileReader::loadStockDataFromFile: Invalid data format at line " << lineNumber << ": " << line << "\n";
-//                 continue; // Skip this line and move to the next
-//             } catch (const std::out_of_range& e) {
-//                 std::cerr << "Warning FileReader::loadStockDataFromFile: Number out of range at line " << lineNumber << ": " << line << "\n";
-//                 continue; // Skip this line and move to the next
-//             }
-//         } else {
-//             std::cerr << "Warning FileReader::loadStockDataFromFile: Malformed line at " << lineNumber << ": " << line << "\n";
-//             continue; // Skip this line and move to the next
-//         }
-//     }
-
-//     file.close();
-//     return true;
-// }
-
-std::vector<std::string> FileReader::readNYSEListings(const std::string& filename) {
-    std::vector<std::string> nyseListings;
-    std::ifstream file(filename);
-
-    if (!file.is_open()) {
-        std::cerr << "Error: Could not open the file: " << filename << std::endl;
-        return nyseListings; // Return an empty list if the file cannot be opened
-    }
-
-    std::string line;
-    while (std::getline(file, line)) {
-        // Assuming each line in the file contains a single stock listing (name or ticker)
-        if (!line.empty()) {
-            nyseListings.push_back(trimInternal(line));
-        }
-    }
-
-    file.close();
-    return nyseListings;
-}
-
-// Internal trim function (if you want it private)
+// Internal trim function 
 std::string FileReader::trimInternal(const std::string& str) {
     std::string trimmed = str;
     trimmed.erase(std::find_if(trimmed.rbegin(), trimmed.rend(), [](unsigned char ch) {
@@ -81,137 +11,797 @@ std::string FileReader::trimInternal(const std::string& str) {
     return trimmed;
 }
 
-std::string FileReader::trim(const std::string& str) {
-    std::string trimmed = str;
-    trimmed.erase(std::find_if(trimmed.rbegin(), trimmed.rend(), [](unsigned char ch) {
-        return !std::isspace(ch);
-    }).base(), trimmed.end());
-    return trimmed;
+// Parse the Epitrend binary format file
+EpitrendBinaryFormat FileReader::parseEpitrendBinaryFormatFile(
+    std::string GM,
+    int year, 
+    int month, 
+    int day, 
+    int hour, 
+    bool verbose
+) {
+    // Array for month names
+    const std::string MONTH_NAMES[] = {
+        "Jan", "Feb", "Mar", "Apr", "May", "Jun", 
+        "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"
+    };
+
+    // Validate month input
+    if (month < 1 || month > 12) {
+        throw std::invalid_argument("Invalid month: " + std::to_string(month));
+    }
+
+    // Construct the file path dynamically
+    std::ostringstream oss;
+    oss << Config::getDataDir() << GM << " Molly/"
+        << std::setfill('0') << year << "/"
+        << std::setw(2) << month << "-" << MONTH_NAMES[month - 1] << "/"
+        << std::setw(2) << day << "day-" << std::setw(2) << hour << "hr.txt";
+    std::string fullpath = oss.str();
+
+    if (verbose) {
+        std::cout << "Opening file: " << fullpath << "\n";
+    }
+
+    // Open the file
+    std::ifstream file(fullpath);
+    if (!file.is_open()) {
+        throw std::runtime_error("Error parseEpitrendFile function call: Could not open file: " + fullpath);
+    }
+
+    EpitrendBinaryFormat binaryFormat;
+    std::string line;
+    int lineNumber = 0;
+
+    //
+
+    // Process each line
+    while (std::getline(file, line)) {
+        lineNumber++;
+        line = trimInternal(line);
+
+        if (line.empty()) {
+            continue; // Skip empty lines
+        }
+
+        if (verbose) {
+            std::cout << "Line " << lineNumber << ": " << line << "\n";
+        }
+
+        // Parse key-value pairs
+        if (line.find("=") == std::string::npos) {
+            continue; // Skip malformed lines
+        }
+
+        std::vector<std::string> lineTokens = split(line, "=");
+        if (lineTokens.size() < 2) {
+            if (verbose) {
+                std::cerr << "Malformed line at " << lineNumber << ": " << line << "\n";
+            }
+            continue;
+        }
+
+        const std::string& key = lineTokens[0];
+        const std::string& value = lineTokens[1];
+
+        try {
+            if (key == "TotalDataItems") {
+                binaryFormat.setTotalDataItems(std::stoi(value));
+                if (verbose) {
+                    std::cout << "Set TotalDataItems: " << value << "\n";
+                }
+            } else if (key == "Misc") {
+                std::vector<std::string> miscTokens = split(value, ";");
+                if (!miscTokens.empty()) {
+                    std::vector<std::string> timeResTokens = split(miscTokens[0], ":");
+                    if (timeResTokens.size() == 2) {
+                        binaryFormat.setTimeResolution(std::stod(timeResTokens[1]));
+                        if (verbose) {
+                            std::cout << "Set TimeResolution: " << timeResTokens[1] << "\n";
+                        }
+                    }
+                }
+            } else if (key == "CurrentDay") {
+                binaryFormat.setCurrentDay(std::stoi(value));
+                if (verbose) {
+                    std::cout << "Set CurrentDay: " << value << "\n";
+                }
+            } else if (key == "DataItem") {
+                EpitrendBinaryFormat::DataItem dataItem;
+                std::vector<std::string> dataItemTokens = split(value, ";");
+
+                for (const auto& token : dataItemTokens) {
+                    std::vector<std::string> dataItemKeyValue = split(token, ":");
+                    if (dataItemKeyValue.size() == 2) {
+                        const std::string& dataKey = dataItemKeyValue[0];
+                        const std::string& dataValue = dataItemKeyValue[1];
+
+                        if (dataKey == "Name") {
+                            dataItem.Name = dataValue;
+                        } else if (dataKey == "Type") {
+                            dataItem.Type = dataValue;
+                        } else if (dataKey == "Range") {
+                            dataItem.Range = dataValue;
+                        } else if (dataKey == "TotalValues") {
+                            dataItem.TotalValues = std::stoi(dataValue);
+                        } else if (dataKey == "ValueOffset") {
+                            dataItem.ValueOffset = std::stoi(dataValue);
+                        }
+                    }
+                }
+
+                if (!dataItem.Name.empty()) {
+                    binaryFormat.addDataItem(dataItem.Name, dataItem);
+                    if (verbose) {
+                        std::cout << "Added DataItem: " << dataItem.Name << "\n";
+                    }
+                }
+            }
+        } catch (const std::exception& e) {
+            if (verbose) {
+                std::cerr << "Error parsing line " << lineNumber << ": " << e.what() << "\n";
+            }
+            continue;
+        }
+    }
+
+    file.close();
+
+    // Final summary
+    if (verbose) {
+        binaryFormat.printSummary();
+    }
+
+    return binaryFormat;
 }
 
-// Test function
-void FileReader::testFunction(){
-    // Initialise the container for the binary formatting
-    EpitrendBinaryFormat binaryFormat;
-    
-    const std::string& DATA_DIR = Config::getDataDir();
-    const std::string& YEAR_DIR = "2024/";
-    const std::string& MONTH_DIR = "11-Nov/";
-    const std::string& filename = "01day-00hr.txt";
-    const std::string& fullpath = DATA_DIR + YEAR_DIR + MONTH_DIR + filename;
+// Parse the Epitrend binary data file
+void FileReader::parseEpitrendBinaryDataFile(
+    EpitrendBinaryData& binary_data,
+    std::string GM,
+    int year,
+    int month,
+    int day,
+    int hour,
+    bool verbose
+) {
+    // Array for month names
+    const std::string MONTH_NAMES[] = {
+        "Jan", "Feb", "Mar", "Apr", "May", "Jun", 
+        "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"
+    };
 
-    std::cout << "Opening file: " << fullpath << "\n"; // DIAGNOSTIC
+    // Parse the Epitrend binary format object
+    EpitrendBinaryFormat binary_format = 
+        FileReader::parseEpitrendBinaryFormatFile(GM, year, month, day, hour, verbose);
 
+    // Construct the file path dynamically
+    std::ostringstream oss;
+    oss << Config::getDataDir() << GM << " Molly/"
+        << std::setfill('0') << year << "/"
+        << std::setw(2) << month << "-" << MONTH_NAMES[month - 1] << "/"
+        << std::setw(2) << day << "day-" << std::setw(2) << hour << "hr-binary.txt";
+    std::string fullpath = oss.str();
+
+    if (verbose) {
+        std::cout << "Opening file: " << fullpath << "\n";
+    }
+
+    // Open the file
     std::ifstream file(fullpath);
-    
-    std::vector<std::string> all_lines;
     if (!file.is_open()) {
-        std::cerr << "Error: Could not open the file: " << fullpath << std::endl;
+        throw std::runtime_error("Error parseEpitrendBinaryDataFile function call: Could not open file: " + fullpath);
     }
 
-    std::string line;
-    std::vector<std::string> line_tokens;
-    int counter  = 1;  // DIAGNOSTIC
-    while (std::getline(file, line)) {
-        // Assuming each line in the file contains at least one character
-        if (!line.empty()) {all_lines.push_back(trimInternal(line));}
+    // Load binary data into a buffer
+    std::vector<double> binary_buffer;
+    float value;
 
-        std::cout << "-------------------------------\nLine " << counter << ": " << line << "\n"; // DIAGNOSTIC
-        counter++;
+    // Read the binary data
+    while (file.read(reinterpret_cast<char*>(&value), sizeof(value))) {
+        binary_buffer.push_back(value);
+    }
+
+    // Loop through all the data item names
+    for(const std::string& data_item_name : binary_format.getAllDataItemNames()) {
+        // For each name, get the time data and
+        // Index the binary file from the offset to the total number of items in each data items            
+        EpitrendBinaryFormat::DataItem current_data_item = binary_format.getDataItem(data_item_name);
+        int start_index = current_data_item.ValueOffset;
+        int end_index = current_data_item.TotalValues + start_index;
         
-        // Check if the line contains the = character
-        if(line.find("=") == std::string::npos){ continue;}
-        
-        // Get the tokens after split by "=" character
-        line_tokens = split(line, "=");
-    
-        if (line_tokens.at(0) == "TotalDataItems") {
-            std::cout << "Reading TotalDataItems" << "\n";
-            try{
-                binaryFormat.setTotalDataItems(stoi(line_tokens.at(1)));
+        // Looping through the time,value pairs for current date item name
+        for(int i = (start_index+1) * 2; i < (end_index+1) * 2; i+=2) { 
+            double current_time = static_cast<double>(binary_format.getCurrentDay()) + binary_buffer.at(i);
+            binary_data.addDataItem(data_item_name, {current_time, (double) binary_buffer.at(i+1)}, verbose);
 
-            } catch(std::exception& e) {
-                std::cout << "testFunction error \"" << e.what() << "\"\n";
-                return;
-
-            }
-            
-        } else if (line_tokens.at(0) == "Misc") {
-            std::cout << "Reading Misc" << "\n";
-            std::vector<std::string> misc_line_tokens = split(line_tokens.at(1), ";");
-            std::vector<std::string> misc_line_tokenss = split(misc_line_tokens.at(0), ":");
-            
-            try{
-                binaryFormat.setTimeResoltuion(stod(misc_line_tokenss.at(1)));
-
-            } catch(std::exception& e) {
-                std::cout << "testFunction error \"" << e.what() << "\"\n";
-                return;
-
-            }
-
-        } else if (line_tokens.at(0) == "CurrentDay") {
-            std::cout << "Reading CurrentDay" << "\n";
-
-            try{
-                binaryFormat.setCurrentDay(stoi(line_tokens.at(1)));
-
-            } catch(std::exception& e) {
-                std::cout << "testFunction error \"" << e.what() << "\"\n";
-                return;
-
-            }
-
-        } else if (line_tokens.at(0) == "DataItem") {
-            std::cout << "Reading DataItem" << "\n";
-
-            // Check the line contains the delimiter ";"
-            if(line.find(";") == std::string::npos){ continue;}
-
-            // Split each DataItem by ";"
-            std::vector<std::string> data_item_tokens = split(line_tokens.at(1), ";");
-
-            // Check that there are a non-zero number of DataItems
-            if(data_item_tokens.size() == 0) { continue;}
-
-            // For each data item token, split each token by ":"
-            for(auto element : data_item_tokens){
-                std::cout << "Reading DataItem token: " << element << "\n";
-                std::vector<std::string> data_item_tokenss = split(element, ":");
-
-                // Check that are more than two tokens inside DataItems
-                if(data_item_tokenss.size() < 2) { continue;}
-
-                // Initialize data structure to hold each data item
-                EpitrendBinaryFormat::dataItem current_data_item;
-
-                // Check what category each token is, but ignore if value is empty
-                if (data_item_tokenss.at(0) == "Name" && !data_item_tokenss.at(1).empty()) {
-                    std::cout << "Reading Name: " << data_item_tokenss.at(1) << "\n";
-                    current_data_item.Name = data_item_tokenss.at(1);
-                    
-                } else if (data_item_tokenss.at(0) == "Type" && !data_item_tokenss.at(1).empty()) {
-                    std::cout << "Reading Type: " << data_item_tokenss.at(1) << "\n";
-                    current_data_item.Type = data_item_tokenss.at(1);
-
-                } else if (data_item_tokenss.at(0) == "Range" && !data_item_tokenss.at(1).empty()) {
-                    std::cout << "Reading Range: " << data_item_tokenss.at(1) << "\n";
-                    current_data_item.Range = data_item_tokenss.at(1);
-
-                } else if (data_item_tokenss.at(0) == "TotalValues" && !data_item_tokenss.at(1).empty()) {
-                    std::cout << "Reading TotalValues: " << data_item_tokenss.at(1) << "\n";
-                    current_data_item.TotalValues = stoi(data_item_tokenss.at(1));
-
-                } else if (data_item_tokenss.at(0) == "ValueOffsets" && !data_item_tokenss.at(1).empty()){
-                    std::cout << "Reading ValueOffsets: " << data_item_tokenss.at(1) << "\n";
-
-                }
- 
-            }
-            
         }
-        
-        if(counter > 10) { return;}
+
     }
 
+}
+
+// Parse the server Epitrend binary format file
+EpitrendBinaryFormat FileReader::parseServerEpitrendBinaryFormatFile(
+    std::string GM,
+    int year, 
+    int month, 
+    int day, 
+    int hour, 
+    bool verbose
+) {
+    // Array for month names
+    const std::string MONTH_NAMES[] = {
+        "Jan", "Feb", "Mar", "Apr", "May", "Jun", 
+        "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"
+    };
+
+    // Validate month input
+    if (month < 1 || month > 12) {
+        throw std::invalid_argument("Invalid month: " + std::to_string(month));
+    }
+
+    // Construct the file path dynamically
+    std::ostringstream oss;
+    oss << Config::getServerEpitrendDataDir() << GM << " Molly/"
+        << "EpiTrend/EpiTrendData/"
+        << std::setfill('0') << year << "/"
+        << std::setw(2) << month << "-" << MONTH_NAMES[month - 1] << "/"
+        << std::setw(2) << day << "day-" << std::setw(2) << hour << "hr.txt";
+    std::string fullpath = oss.str();
+
+    if (verbose) {
+        std::cout << "Opening file: " << fullpath << "\n";
+    }
+
+    // Open the file
+    std::ifstream file(fullpath);
+    if (!file.is_open()) {
+        throw std::runtime_error("Error parseServerEpitrendBinaryFormatFile function call: Could not open file: " + fullpath);
+    }
+
+    EpitrendBinaryFormat binaryFormat;
+    std::string line;
+    int lineNumber = 0;
+
+    //
+
+    // Process each line
+    while (std::getline(file, line)) {
+        lineNumber++;
+        line = trimInternal(line);
+
+        if (line.empty()) {
+            continue; // Skip empty lines
+        }
+
+        if (verbose) {
+            std::cout << "Line " << lineNumber << ": " << line << "\n";
+        }
+
+        // Parse key-value pairs
+        if (line.find("=") == std::string::npos) {
+            continue; // Skip malformed lines
+        }
+
+        std::vector<std::string> lineTokens = split(line, "=");
+        if (lineTokens.size() < 2) {
+            if (verbose) {
+                std::cerr << "Malformed line at " << lineNumber << ": " << line << "\n";
+            }
+            continue;
+        }
+
+        const std::string& key = lineTokens[0];
+        const std::string& value = lineTokens[1];
+
+        try {
+            if (key == "TotalDataItems") {
+                binaryFormat.setTotalDataItems(std::stoi(value));
+                if (verbose) {
+                    std::cout << "Set TotalDataItems: " << value << "\n";
+                }
+            } else if (key == "Misc") {
+                std::vector<std::string> miscTokens = split(value, ";");
+                if (!miscTokens.empty()) {
+                    std::vector<std::string> timeResTokens = split(miscTokens[0], ":");
+                    if (timeResTokens.size() == 2) {
+                        binaryFormat.setTimeResolution(std::stod(timeResTokens[1]));
+                        if (verbose) {
+                            std::cout << "Set TimeResolution: " << timeResTokens[1] << "\n";
+                        }
+                    }
+                }
+            } else if (key == "CurrentDay") {
+                binaryFormat.setCurrentDay(std::stoi(value));
+                if (verbose) {
+                    std::cout << "Set CurrentDay: " << value << "\n";
+                }
+            } else if (key == "DataItem") {
+                EpitrendBinaryFormat::DataItem dataItem;
+                std::vector<std::string> dataItemTokens = split(value, ";");
+
+                for (const auto& token : dataItemTokens) {
+                    std::vector<std::string> dataItemKeyValue = split(token, ":");
+                    if (dataItemKeyValue.size() == 2) {
+                        const std::string& dataKey = dataItemKeyValue[0];
+                        const std::string& dataValue = dataItemKeyValue[1];
+
+                        if (dataKey == "Name") {
+                            dataItem.Name = dataValue;
+                        } else if (dataKey == "Type") {
+                            dataItem.Type = dataValue;
+                        } else if (dataKey == "Range") {
+                            dataItem.Range = dataValue;
+                        } else if (dataKey == "TotalValues") {
+                            dataItem.TotalValues = std::stoi(dataValue);
+                        } else if (dataKey == "ValueOffset") {
+                            dataItem.ValueOffset = std::stoi(dataValue);
+                        }
+                    }
+                }
+
+                if (!dataItem.Name.empty()) {
+                    binaryFormat.addDataItem(dataItem.Name, dataItem);
+                    if (verbose) {
+                        std::cout << "Added DataItem: " << dataItem.Name << "\n";
+                    }
+                }
+            }
+        } catch (const std::exception& e) {
+            if (verbose) {
+                std::cerr << "Error parsing line " << lineNumber << ": " << e.what() << "\n";
+            }
+            continue;
+        }
+    }
+
+    file.close();
+
+    // Final summary
+    if (verbose) {
+        binaryFormat.printSummary();
+    }
+
+    return binaryFormat;
+}
+
+// Parse the Epitrend binary data file
+void FileReader::parseServerEpitrendBinaryDataFile(
+    EpitrendBinaryData& binary_data,
+    std::string GM,
+    int year,
+    int month,
+    int day,
+    int hour,
+    bool verbose
+) {
+    // Array for month names
+    const std::string MONTH_NAMES[] = {
+        "Jan", "Feb", "Mar", "Apr", "May", "Jun", 
+        "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"
+    };
+
+    // Parse the Epitrend binary format object
+    EpitrendBinaryFormat binary_format = 
+        FileReader::parseServerEpitrendBinaryFormatFile(GM, year, month, day, hour, verbose);
+
+    // Construct the file path dynamically
+    std::ostringstream oss;
+    oss << Config::getServerEpitrendDataDir() << GM << " Molly/"
+        << "EpiTrend/EpiTrendData/"
+        << std::setfill('0') << year << "/"
+        << std::setw(2) << month << "-" << MONTH_NAMES[month - 1] << "/"
+        << std::setw(2) << day << "day-" << std::setw(2) << hour << "hr-binary.txt";
+    std::string fullpath = oss.str();
+
+    if (verbose) {
+        std::cout << "Opening file: " << fullpath << "\n";
+    }
+
+    // Open the file
+    std::ifstream file(fullpath);
+    if (!file.is_open()) {
+        throw std::runtime_error("Error parseServerEpitrendBinaryDataFile function call: Could not open file: " + fullpath);
+    }
+
+    // Load binary data into a buffer
+    std::vector<double> binary_buffer;
+    float value;
+
+    // Read the binary data
+    while (file.read(reinterpret_cast<char*>(&value), sizeof(value))) {
+        binary_buffer.push_back(value);
+    }
+
+    // Loop through all the data item names
+    for(const std::string& data_item_name : binary_format.getAllDataItemNames()) {
+        // For each name, get the time data and
+        // Index the binary file from the offset to the total number of items in each data items            
+        EpitrendBinaryFormat::DataItem current_data_item = binary_format.getDataItem(data_item_name);
+        int start_index = current_data_item.ValueOffset;
+        int end_index = current_data_item.TotalValues + start_index;
+        
+        // Looping through the time,value pairs for current date item name
+        for(int i = (start_index+1) * 2; i < (end_index+1) * 2; i+=2) { 
+            double current_time = static_cast<double>(binary_format.getCurrentDay()) + binary_buffer.at(i);
+            binary_data.addDataItem(data_item_name, {current_time, (double) binary_buffer.at(i+1)}, verbose);
+
+        }
+
+    }
+
+}
+
+// Parse the RGA data file
+void FileReader::parseRGADataFile(
+    RGAData& rga_data,
+    std::string GM,
+    int year,
+    int month,
+    int day,
+    bool verbose
+) {
+    // Construct the directory path
+    std::ostringstream dir_oss;
+    dir_oss << "data/MBE1/"
+            << std::setfill('0') << std::setw(4) << year << "-"
+            << std::setw(3) << month << "-"
+            << std::setw(2) << day;
+    std::string directory = dir_oss.str();
+
+    // Check if the directory exists
+    if (!fs::exists(directory) || !fs::is_directory(directory)) {
+        throw std::runtime_error("Error parseRGADataFile function call:"
+        " Directory does not exist: " 
+        + directory);
+    }
+
+    // Construct the regex pattern dynamically
+    std::ostringstream oss;
+    oss << "daily log, " << GM << ", RGA MPH .*?, "
+        << std::setfill('0') << std::setw(4) << year << "-"
+        << std::setw(3) << month << "-"
+        << std::setw(2) << day << " .*?\\.dat";
+    std::string pattern = oss.str();
+
+    if (verbose) {
+        std::cout << "In parseRGADataFile call: constructed directory path: " << directory << "\n";
+        std::cout << "In parseRGADataFile call: constructed regex pattern: " << pattern << "\n";
+    }
+
+    // Compile the regex pattern
+    std::regex regex_pattern(pattern);
+
+    // Search for matching files
+    bool file_found = false;
+
+    // Storage structure for all lines in file
+    std::vector<std::string> lines;
+
+
+    if (verbose) 
+        std::cout << "In parseRGADataFile call: searching for"
+        " matching files in directory: " << directory << "\n";
+    for (const auto& entry : fs::directory_iterator(directory)) {
+        if (fs::is_regular_file(entry.path())) {
+            std::string filename = entry.path().filename().string();
+            if (std::regex_match(filename, regex_pattern)) {
+                std::string fullpath = entry.path().string();
+                if (verbose) 
+                    std::cout << "In parseRGADataFile call: found matching file: " << fullpath << "\n";
+
+                // Open the file
+                std::ifstream file(fullpath);
+                if (!file.is_open()) {
+                    throw std::runtime_error("Error parseRGADataFile function call:"
+                    " Could not open file: " + fullpath);
+                }
+
+                // Load all the lines into a buffer
+                std::string line;
+                while (std::getline(file, line)) {
+                    lines.push_back(line);
+                }
+
+                file.close();
+                file_found = true;
+                break; // Stop searching after finding the first matching file
+            }
+        }
+    }
+    
+    // Throw an error if no matching file is found
+    if (!file_found) {
+        throw std::runtime_error("Error parseRGADataFile function call:"
+        " No matching file found for pattern: " + pattern);
+    }
+
+    // Ensure the data file has a headers row
+    if (lines.empty()) {
+        throw std::runtime_error("Error parseRGADataFile function call: Data file is empty.");
+    }
+
+    // Find the header row
+    size_t header_row_index = 0;
+    for (; header_row_index < lines.size(); ++header_row_index) {
+        if (lines[header_row_index].find("Time Relative (sec)") != std::string::npos) {
+            break;
+        }
+    }
+
+    // Throw an error if no header row is found
+    if (header_row_index == lines.size()) {
+        throw std::runtime_error("Error parseRGADataFile function call: No header row found in the data file.");
+    }
+
+    // Process the headers row
+    std::istringstream header_stream(lines[header_row_index]);
+    std::vector<std::string> headers;
+    std::string header;
+    std::vector<double> bins;  // May not need
+    while (std::getline(header_stream, header, '\t')) {
+        if (header != "Time Relative (sec)" && header != "Time Absolute (UTC)" && header != "Time Absolute (Date_Time)" && header != "Step") {
+            bins.push_back(std::stod(header));
+        }
+        headers.push_back(header);
+    }
+
+    // Map the header to each row entry for all entire time series
+    std::unordered_map<double, std::unordered_map<std::string, std::string>> all_time_series_header_map;
+    for (size_t i = header_row_index + 1; i < lines.size(); ++i) {
+        std::vector<std::string> current_row = FileReader::split(lines.at(i), "\t");
+
+        // Check that the numbers of headers and the current line match
+        if (current_row.size() != headers.size())
+            throw std::runtime_error("Error parseRGADataFile function call: Number of headers and row entries do not match.");
+        
+        // Map the headers to the current row entries
+        // THIS ASSUMES THAT THE UNIX TIME IS THE SECOND ENTRY IN THE ROW
+        double unix_time;
+        try {
+            unix_time = std::stod(current_row.at(1));
+        } catch (const std::exception& e) {
+            if (verbose) std::cerr << "Error parseRGADataFile function call: error parsing unix time: " << e.what() << "\n";
+            throw std::runtime_error("Error parseRGADataFile function call: Error parsing unix time");
+        }
+        for (size_t j = 0; j < headers.size(); ++j) {
+            all_time_series_header_map[unix_time][headers.at(j)] = current_row.at(j);
+        }
+    }
+
+    // Extract the AMUBins struct from input RGAData object
+    std::vector<RGAData::AMUBins> rga_object_bins = rga_data.getBins();
+
+    // Add time-series data into RGAData object
+    for (auto& AMUbin_object : rga_object_bins) {
+        std::cout << "Current bin: "; AMUbin_object.print();
+        for (const auto& time_header_map : all_time_series_header_map) {
+            // Extract the time and value from the time_series and header map
+            double current_input_unix_time = time_header_map.first;
+
+            // Calculate the average of the bin values
+            double current_input_value = 0.0;
+            for (const auto& bin : AMUbin_object.bins) {
+                // Extract the value from the time_series and header map
+                std::ostringstream bin_stream;
+                bin_stream.precision(2);
+                bin_stream << std::fixed << bin;
+                std::string bin_search = std::move(bin_stream).str();
+                if (time_header_map.second.find(bin_search) == time_header_map.second.end())
+                    throw std::runtime_error("Error parseRGADataFile function call: bin value not found in header map.");
+
+                // Add the value to the current input value
+                current_input_value += stod(time_header_map.second.at(bin_search));
+            }
+            current_input_value /= AMUbin_object.bins.size();
+            
+            // Add the time-series data to the RGAData object
+            if (verbose) {
+                std::cout << "Adding data to RGAData object: "
+                << std::setprecision(9) << current_input_unix_time 
+                << ", " << current_input_value 
+                << "\n";
+            }
+
+            // Set the GM for AMUbin_object
+            AMUbin_object.GM = GM;
+
+            // Add the data to the RGAData object
+            rga_data.addData(AMUbin_object, current_input_unix_time, current_input_value);
+        }
+    }
+}
+
+// Parse the RGA data file
+void FileReader::parseServerRGADataFile(
+    RGAData& rga_data,
+    std::string GM,
+    int year,
+    int month,
+    int day,
+    bool verbose
+) {
+    // Construct the directory path
+    std::ostringstream dir_oss;
+    dir_oss << "/mnt/y/BNE-Characterisation/In-situ_MBE/Inficon RGA/MBE1/"
+            << std::setfill('0') << std::setw(4) << year << "-"
+            << std::setw(3) << month << "-"
+            << std::setw(2) << day;
+    std::string directory = dir_oss.str();
+
+    // Check if the directory exists
+    if (!fs::exists(directory) || !fs::is_directory(directory)) {
+        throw std::runtime_error("Error parseServerRGADataFile function call:"
+        " Directory does not exist: " 
+        + directory);
+    }
+
+    // Construct the regex pattern dynamically
+    std::ostringstream oss;
+    oss << "daily log, " << GM << ", RGA MPH .*?, "
+        << std::setfill('0') << std::setw(4) << year << "-"
+        << std::setw(3) << month << "-"
+        << std::setw(2) << day << " .*?\\.dat";
+    std::string pattern = oss.str();
+
+    if (verbose) {
+        std::cout << "In parseServerRGADataFile call: constructed directory path: " << directory << "\n";
+        std::cout << "In parseServerRGADataFile call: constructed regex pattern: " << pattern << "\n";
+    }
+
+    // Compile the regex pattern
+    std::regex regex_pattern(pattern);
+
+    // Search for matching files
+    bool file_found = false;
+
+    // Storage structure for all lines in file
+    std::vector<std::string> lines;
+
+
+    if (verbose) 
+        std::cout << "In parseServerRGADataFile call: searching for"
+        " matching files in directory: " << directory << "\n";
+    for (const auto& entry : fs::directory_iterator(directory)) {
+        if (fs::is_regular_file(entry.path())) {
+            std::string filename = entry.path().filename().string();
+            if (std::regex_match(filename, regex_pattern)) {
+                std::string fullpath = entry.path().string();
+                if (verbose) 
+                    std::cout << "In parseServerRGADataFile call: found matching file: " << fullpath << "\n";
+
+                // Open the file
+                std::ifstream file(fullpath);
+                if (!file.is_open()) {
+                    throw std::runtime_error("Error parseServerRGADataFile function call:"
+                    " Could not open file: " + fullpath);
+                }
+
+                // Load all the lines into a buffer
+                std::string line;
+                while (std::getline(file, line)) {
+                    lines.push_back(line);
+                }
+
+                file.close();
+                file_found = true;
+                break; // Stop searching after finding the first matching file
+            }
+        }
+    }
+    
+    // Throw an error if no matching file is found
+    if (!file_found) {
+        throw std::runtime_error("Error parseServerRGADataFile function call:"
+        " No matching file found for pattern: " + pattern);
+    }
+
+    // Ensure the data file has a headers row
+    if (lines.empty()) {
+        throw std::runtime_error("Error parseServerRGADataFile function call: Data file is empty.");
+    }
+
+    // Find the header row
+    size_t header_row_index = 0;
+    for (; header_row_index < lines.size(); ++header_row_index) {
+        if (lines[header_row_index].find("Time Relative (sec)") != std::string::npos) {
+            break;
+        }
+    }
+
+    // Throw an error if no header row is found
+    if (header_row_index == lines.size()) {
+        throw std::runtime_error("Error parseServerRGADataFile function call: No header row found in the data file.");
+    }
+
+    // Process the headers row
+    std::istringstream header_stream(lines[header_row_index]);
+    std::vector<std::string> headers;
+    std::string header;
+    std::vector<double> bins;  // May not need
+    while (std::getline(header_stream, header, '\t')) {
+        if (header != "Time Relative (sec)" && header != "Time Absolute (UTC)" && header != "Time Absolute (Date_Time)" && header != "Step") {
+            bins.push_back(std::stod(header));
+        }
+        headers.push_back(header);
+    }
+
+    // Map the header to each row entry for all entire time series
+    std::unordered_map<double, std::unordered_map<std::string, std::string>> all_time_series_header_map;
+    for (size_t i = header_row_index + 1; i < lines.size(); ++i) {
+        std::vector<std::string> current_row = FileReader::split(lines.at(i), "\t");
+
+        // Check that the numbers of headers and the current line match
+        if (current_row.size() != headers.size())
+            throw std::runtime_error("Error parseServerRGADataFile function call: Number of headers and row entries do not match.");
+        
+        // Map the headers to the current row entries
+        // THIS ASSUMES THAT THE UNIX TIME IS THE SECOND ENTRY IN THE ROW
+        double unix_time;
+        try {
+            unix_time = std::stod(current_row.at(1));
+        } catch (const std::exception& e) {
+            if (verbose) std::cerr << "Error parseServerRGADataFile function call: error parsing unix time: " << e.what() << "\n";
+            throw std::runtime_error("Error parseServerRGADataFile function call: Error parsing unix time");
+        }
+        for (size_t j = 0; j < headers.size(); ++j) {
+            all_time_series_header_map[unix_time][headers.at(j)] = current_row.at(j);
+        }
+    }
+
+    // Extract the AMUBins struct from input RGAData object
+    std::vector<RGAData::AMUBins> rga_object_bins = rga_data.getBins();
+
+    // Add time-series data into RGAData object
+    for (auto& AMUbin_object : rga_object_bins) {
+        if (verbose) {std::cout << "Current bin: "; AMUbin_object.print();}
+        for (const auto& time_header_map : all_time_series_header_map) {
+            // Extract the time and value from the time_series and header map
+            double current_input_unix_time = time_header_map.first;
+
+            // Calculate the average of the bin values
+            double current_input_value = 0.0;
+            int bin_counter = 0;
+            for (const auto& bin : AMUbin_object.bins) {
+                // Extract the value from the time_series and header map
+                std::ostringstream bin_stream;
+                bin_stream.precision(2);
+                bin_stream << std::fixed << bin;
+                std::string bin_search = std::move(bin_stream).str();
+                if (time_header_map.second.find(bin_search) == time_header_map.second.end()) {
+                    if (verbose) std::cerr << "Warning parseServerRGADataFile function call: bin value " + bin_search + " not found in header map... excluding this value from the average.";
+                    continue;
+                }
+                // Add the value to the current input value
+                current_input_value += stod(time_header_map.second.at(bin_search));
+
+                // Increment bin counter
+                bin_counter++;
+            }
+            
+            // Check if any bins were successfully found
+            if (bin_counter == 0) {
+                // Do not add current value into the database
+                continue;
+            }
+
+            // Calculate the average
+            current_input_value /= static_cast<double>(bin_counter);
+            
+            // Add the time-series data to the RGAData object
+            if (verbose) {
+                std::cout << "Adding data to RGAData object: "
+                << std::setprecision(9) << current_input_unix_time 
+                << ", " << current_input_value 
+                << "\n";
+            }
+
+            // Set the GM for AMUbin_object
+            AMUbin_object.GM = GM;
+
+            // Add the data to the RGAData object
+            rga_data.addData(AMUbin_object, current_input_unix_time, current_input_value);
+        }
+    }
 }

@@ -33,4 +33,5 @@
 
 # Folders
 /data
-/bin
+/output
+/local_token
