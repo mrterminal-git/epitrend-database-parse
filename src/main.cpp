@@ -592,45 +592,150 @@ void processRealTimeEpitrendData(std::promise<void> exitSignal) {
 }
 
 int main() {
-    // Create promises and futures for each thread
-    std::promise<void> promiseRealTimeRGA, promiseHistoricalRGA, promiseHistoricalEpitrend, promiseRealTimeEpitrend;
-    std::future<void> futureRealTimeRGA = promiseRealTimeRGA.get_future();
-    std::future<void> futureHistoricalRGA = promiseHistoricalRGA.get_future();
-    std::future<void> futureHistoricalEpitrend = promiseHistoricalEpitrend.get_future();
-    std::future<void> futureRealTimeEpitrend = promiseRealTimeEpitrend.get_future();
+    // // Create promises and futures for each thread
+    // std::promise<void> promiseRealTimeRGA, promiseHistoricalRGA, promiseHistoricalEpitrend, promiseRealTimeEpitrend;
+    // std::future<void> futureRealTimeRGA = promiseRealTimeRGA.get_future();
+    // std::future<void> futureHistoricalRGA = promiseHistoricalRGA.get_future();
+    // std::future<void> futureHistoricalEpitrend = promiseHistoricalEpitrend.get_future();
+    // std::future<void> futureRealTimeEpitrend = promiseRealTimeEpitrend.get_future();
 
-    // Create and start threads
-    std::thread threadRealTimeRGADataToInflux(processRealTimeRGAData, std::move(promiseRealTimeRGA));
-    std::thread threadHistoricalRGADataToInflux(processHistoricalRGAData, std::move(promiseHistoricalRGA));
-    std::thread threadHistoricalEpitrendDataToInflux(processHistoricalEpitrendData, std::move(promiseHistoricalEpitrend));
-    std::thread threadRealTimeEpitrendDataToInflux(processRealTimeEpitrendData, std::move(promiseRealTimeEpitrend));
+    // // Create and start threads
+    // std::thread threadRealTimeRGADataToInflux(processRealTimeRGAData, std::move(promiseRealTimeRGA));
+    // std::thread threadHistoricalRGADataToInflux(processHistoricalRGAData, std::move(promiseHistoricalRGA));
+    // std::thread threadHistoricalEpitrendDataToInflux(processHistoricalEpitrendData, std::move(promiseHistoricalEpitrend));
+    // std::thread threadRealTimeEpitrendDataToInflux(processRealTimeEpitrendData, std::move(promiseRealTimeEpitrend));
 
-    // Monitor the futures to detect when threads have stopped running
-    std::vector<std::future<void>*> futures = {&futureRealTimeRGA, &futureHistoricalRGA, &futureHistoricalEpitrend, &futureRealTimeEpitrend};
-    while (!futures.empty()) {
-        for (auto it = futures.begin(); it != futures.end();) {
-            std::future_status status = (*it)->wait_for(std::chrono::milliseconds(100));
-            if (status == std::future_status::ready) {
-                try {
-                    (*it)->get(); // Check for exceptions
-                    std::cout << "Thread completed successfully.\n";
-                } catch (const std::exception& e) {
-                    std::cerr << "Thread exited with exception: " << e.what() << std::endl;
-                    exit(-1);
-                }
-                it = futures.erase(it); // Remove the future from the list
-            } else {
-                ++it;
-            }
+    // // Monitor the futures to detect when threads have stopped running
+    // std::vector<std::future<void>*> futures = {&futureRealTimeRGA, &futureHistoricalRGA, &futureHistoricalEpitrend, &futureRealTimeEpitrend};
+    // while (!futures.empty()) {
+    //     for (auto it = futures.begin(); it != futures.end();) {
+    //         std::future_status status = (*it)->wait_for(std::chrono::milliseconds(100));
+    //         if (status == std::future_status::ready) {
+    //             try {
+    //                 (*it)->get(); // Check for exceptions
+    //                 std::cout << "Thread completed successfully.\n";
+    //             } catch (const std::exception& e) {
+    //                 std::cerr << "Thread exited with exception: " << e.what() << std::endl;
+    //                 exit(-1);
+    //             }
+    //             it = futures.erase(it); // Remove the future from the list
+    //         } else {
+    //             ++it;
+    //         }
+    //     }
+    // }
+
+    // // Join all threads
+    // threadRealTimeRGADataToInflux.join();
+    // threadHistoricalRGADataToInflux.join();
+    // threadHistoricalEpitrendDataToInflux.join();
+    // threadRealTimeEpitrendDataToInflux.join();
+
+    InfluxDatabase influx_db(host, port, org, epitrend_bucket, user, password, precision, token);
+    bool is_influx_connected = influx_db.checkConnection(false);
+
+    // Get time
+    int start_year, start_month, start_day, start_hour, start_minute, 
+        end_year, end_month, end_day, end_hour, end_minute;
+    double start_second, end_second;
+    start_year = 2024;
+    start_month = 9;
+    start_day = 14;
+    start_hour = 0;
+    start_minute = 0;
+    start_second = 0.0;
+
+    end_year = 2024;
+    end_month = 9;
+    end_day = 14;
+    end_hour = 1;
+    end_minute = 0;
+    end_second = 0.0;
+
+
+    // Query the data from the database for that time range
+    // Prepare name-series (ns) query read all data statement
+    struct ns_read_all_struct {
+        std::string bucket;
+        std::string read_query;
+        void set_read_query(){read_query = "from(bucket: \"" + bucket + "\") "
+            "|> range(start: -50y, stop: 100y)"
+            "|> filter(fn: (r) => r[\"_measurement\"] == \"ns\")";
         }
+    };
+
+    // Prepare the time-series (ts) query to read data statement
+    struct ts_read_struct {
+        std::string bucket;
+        std::string sensor_id;
+        std::string num;
+        std::string timestamp_start;
+        std::string timestamp_end;
+        std::string read_query;
+        void set_read_query(){read_query = "from(bucket: \"" + bucket + "\") "
+            "|> range(start: -50y, stop: 100y)"
+            "|> filter(fn: (r) => r[\"_measurement\"] == \"ns\")";
+        }
+    };
+
+    std::string bucket = "EPITREND";
+
+    // Prepare the ns_read_all_struct object
+    ns_read_all_struct ns_read_all = {.bucket = bucket};
+    ns_read_all.set_read_query();
+
+    // Read the ns table for all data
+    std::string response;
+    response = "";
+    influx_db.queryData2(response, ns_read_all.read_query);
+
+    // Parse the response
+    std::vector<std::unordered_map<std::string,std::string>> parsed_response = influx_db.parseQueryResponse(response);
+
+    // Cache all the sensor-name and sensor-id pairs that exist in the ns table
+    std::unordered_map<std::string, std::string> sensor_names_to_ids;
+    std::unordered_map<std::string, std::string> sensor_ids_to_names;
+    for(const auto& element : parsed_response) {
+        // Check sensor_ and sensor_id_ keys exist (ns table should contain these keys)
+        if(element.find("sensor_") == element.end() || element.find("_value") == element.end()) {
+            std::cerr << "Error in InfluxDatabase::copyEpitrendToBucket2 call: "
+            "sensor_ or sensor_id key not found in ns table\n";
+            throw std::runtime_error("Error in InfluxDatabase::copyEpitrendToBucket2 call: "
+            "sensor_ or sensor_id key not found in ns table\n");
+        }
+
+        // Cache the sensor-name and sensor-id pairs
+        sensor_names_to_ids[element.at("sensor_")] = element.at("_value");
+        sensor_ids_to_names[element.at("_value")] = element.at("sensor_");
+        std::cout << "Cached sensor-name: " << element.at("sensor_") << " with sensor-id: " << element.at("_value") << "\n";
     }
 
-    // Join all threads
-    threadRealTimeRGADataToInflux.join();
-    threadHistoricalRGADataToInflux.join();
-    threadHistoricalEpitrendDataToInflux.join();
-    threadRealTimeEpitrendDataToInflux.join();
+    // Get all the data for some sensor-name within the time range
+    std::cout << "Sensor id 1218: " << sensor_ids_to_names["1218"] << "\n";
 
+    // Prepare influx_time_struct
+    struct influx_time_struct {
+        int year;
+        int month;
+        int day;
+        int hour;
+        int minute;
+        double second;
+        std::string influx_timestamp;
 
-return 0;
+        void set_influx_timestamp() {
+            std::ostringstream oss;
+            oss << std::setfill('0') << std::setw(4) << year << "-"
+                << std::setw(2) << month << "-"
+                << std::setw(2) << day << "T"
+                << std::setw(2) << hour << ":"
+                << std::setw(2) << minute << ":"
+                << std::fixed << std::setprecision(2) << std::setw(5) << second << "Z";
+            influx_timestamp = oss.str();
+        }
+    };
+
+    
+
+    return 0;
 }
