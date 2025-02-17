@@ -673,8 +673,9 @@ int main() {
         std::string timestamp_end;
         std::string read_query;
         void set_read_query(){read_query = "from(bucket: \"" + bucket + "\") "
-            "|> range(start: -50y, stop: 100y)"
-            "|> filter(fn: (r) => r[\"_measurement\"] == \"ns\")";
+            "|> range(start: " + timestamp_start + ", stop: " + timestamp_end + ")"
+            "|> filter(fn: (r) => r[\"_measurement\"] == \"ts\")"
+            "|> filter(fn: (r) => r[\"sensor_id_\"] == \"" + sensor_id + "\")";
         }
     };
 
@@ -735,7 +736,82 @@ int main() {
         }
     };
 
+    // Create the influx_time_struct object
+    influx_time_struct start_time = {
+        .year = start_year,
+        .month = start_month, 
+        .day = start_day, 
+        .hour = start_hour, 
+        .minute = start_minute, 
+        .second = start_second
+    };
+    start_time.set_influx_timestamp();
+
+    influx_time_struct end_time = {
+        .year = end_year,
+        .month = end_month, 
+        .day = end_day, 
+        .hour = end_hour, 
+        .minute = end_minute, 
+        .second = end_second
+    };
+    end_time.set_influx_timestamp();
+
+    // Prepare the ts_read_struct object
+    ts_read_struct ts_read = {
+        .bucket = bucket,
+        .sensor_id = "1029",
+        .num = "1",
+        .timestamp_start = start_time.influx_timestamp,
+        .timestamp_end = end_time.influx_timestamp
+    };
+    ts_read.set_read_query();
+
+    // Query the data from the database for that time range
+    response = "";
+    influx_db.queryData2(response, ts_read.read_query);
+    std::cout << "Query: " << ts_read.read_query << "\n";
+    std::cout << "Response: " << response << "\n";
+
+    // Parse the response
+    parsed_response = influx_db.parseQueryResponse(response);
     
+    // Print the parsed response
+    for(const auto& element : parsed_response) {
+        for (const auto& [key, value] : element) {
+            std::cout << key << " : " << value << "\n";
+        }
+        std::cout << "--------------------------------------------\n";
+    }
+
+    // Get the data for the sensor_id
+    std::vector<std::pair<std::string, std::string>> data_str;
+    std::vector<std::pair<double, double>> data;
+    for (const auto& element: parsed_response) {
+        data_str.push_back(std::make_pair(element.at("_time"), element.at("_value")));
+
+        // Convert the time string to Unix time double
+        std::string time_str = element.at("_time");
+        std::tm tm = {};
+        std::istringstream ss(time_str);
+        ss >> std::get_time(&tm, "%Y-%m-%dT%H:%M:%S.%fZ");
+        std::time_t time = std::mktime(&tm);
+
+        // Append time and value to the data vector
+        data.push_back(std::make_pair(time, std::stod(element.at("_value"))));
+    }
+
+    // Print the data string
+    for (const auto& element: data_str) {
+        std::cout << "Time: " << element.first << " Value: " << element.second << "\n";
+    }
+
+    // Print the data
+    for (const auto& element: data) {
+        // Set precision
+        std::cout << std::fixed << std::setprecision(11);
+        std::cout << "Data | Time: " << element.first << " Value: " << element.second << "\n";
+    }
 
     return 0;
 }
