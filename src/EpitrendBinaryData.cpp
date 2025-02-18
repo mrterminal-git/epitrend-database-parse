@@ -52,8 +52,8 @@ void EpitrendBinaryData::printAllTimeSeriesData(){
         }
 }
 
-void EpitrendBinaryData::printFileAllTimeSeriesData(const std::string& filename){
-    std::string fullpath = Config::getOutputDir() + filename;
+void EpitrendBinaryData::printFileAllTimeSeriesData(const Config& config, const std::string& filename){
+    std::string fullpath = config.getOutputDir() + filename;
     std::ofstream outFile(fullpath);
     for(auto element : allTimeSeriesData) {
         outFile << element.first << "\n";

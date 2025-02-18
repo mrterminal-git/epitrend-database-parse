@@ -15,18 +15,20 @@ public:
 
     // Parse the Epitrend binary format file
     static EpitrendBinaryFormat parseEpitrendBinaryFormatFile(
-        std::string GM,
-        int year, 
-        int month, 
-        int day, 
-        int hour, 
+        const Config& config,
+        const std::string& GM,
+        int year,
+        int month,
+        int day,
+        int hour,
         bool verbose
     );
    
     // Parse the Epitrend binary data file
     static void parseEpitrendBinaryDataFile(
+        const Config& config,
         EpitrendBinaryData& binary_data,
-        std::string GM,
+        const std::string& GM,
         int year,
         int month,
         int day,
@@ -36,18 +38,20 @@ public:
 
     // Parse the server Epitrend binary format file
     static EpitrendBinaryFormat parseServerEpitrendBinaryFormatFile(
-        std::string GM,
-        int year, 
-        int month, 
-        int day, 
-        int hour, 
+        const Config& config,
+        const std::string& GM,
+        int year,
+        int month,
+        int day,
+        int hour,
         bool verbose
     );
    
     // Parse the server Epitrend binary data file
     static void parseServerEpitrendBinaryDataFile(
+        const Config& config,
         EpitrendBinaryData& binary_data,
-        std::string GM,
+        const std::string& GM,
         int year,
         int month,
         int day,
@@ -58,7 +62,7 @@ public:
     // Parse the RGA data file
     static void parseRGADataFile(
         RGAData& rga_data,
-        std::string GM,
+        const std::string& GM,
         int year,
         int month,
         int day,
@@ -67,8 +71,9 @@ public:
 
     // Parse the server RGA data file
     static void parseServerRGADataFile(
+        const Config& config,
         RGAData& rga_data,
-        std::string GM,
+        const std::string& GM,
         int year,
         int month,
         int day,

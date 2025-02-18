@@ -102,7 +102,7 @@ public:
 
     // Utility
     void printAllTimeSeriesData();
-    void printFileAllTimeSeriesData(const std::string& filename);
+    void printFileAllTimeSeriesData(const Config& config, const std::string& filename);
     void clearData();
     RGAData difference(const RGAData& other) const;
     bool is_empty() const;
