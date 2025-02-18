@@ -604,15 +604,15 @@ void processRealTimeEpitrendData(std::promise<void> exitSignal) {
 }
 
 int main() {
-    // std::cout << "org: " << org << "\n";
-    // std::cout << "host: " << host << "\n";
-    // std::cout << "port: " << port << "\n";
-    // std::cout << "rga_bucket: " << rga_bucket << "\n";
-    // std::cout << "epitrend_bucket: " << epitrend_bucket << "\n";
-    // std::cout << "user: " << user << "\n";
-    // std::cout << "password: " << password << "\n";
-    // std::cout << "precision: " << precision << "\n";
-    // std::cout << "token: " << token << "\n";
+    std::cout << "org: " << org << "\n";
+    std::cout << "host: " << host << "\n";
+    std::cout << "port: " << port << "\n";
+    std::cout << "rga_bucket: " << rga_bucket << "\n";
+    std::cout << "epitrend_bucket: " << epitrend_bucket << "\n";
+    std::cout << "user: " << user << "\n";
+    std::cout << "password: " << password << "\n";
+    std::cout << "precision: " << precision << "\n";
+    std::cout << "token: " << token << "\n";
 
     // Create promises and futures for each thread
     std::promise<void> promiseRealTimeRGA, promiseHistoricalRGA, promiseHistoricalEpitrend, promiseRealTimeEpitrend;
