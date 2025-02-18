@@ -13,11 +13,12 @@ std::string FileReader::trimInternal(const std::string& str) {
 
 // Parse the Epitrend binary format file
 EpitrendBinaryFormat FileReader::parseEpitrendBinaryFormatFile(
-    std::string GM,
-    int year, 
-    int month, 
-    int day, 
-    int hour, 
+    const Config& config,
+    const std::string& GM,
+    int year,
+    int month,
+    int day,
+    int hour,
     bool verbose
 ) {
     // Array for month names
@@ -33,7 +34,7 @@ EpitrendBinaryFormat FileReader::parseEpitrendBinaryFormatFile(
 
     // Construct the file path dynamically
     std::ostringstream oss;
-    oss << Config::getDataDir() << GM << " Molly/"
+    oss << config.getDataDir() << GM << " Molly/"
         << std::setfill('0') << year << "/"
         << std::setw(2) << month << "-" << MONTH_NAMES[month - 1] << "/"
         << std::setw(2) << day << "day-" << std::setw(2) << hour << "hr.txt";
@@ -157,8 +158,9 @@ EpitrendBinaryFormat FileReader::parseEpitrendBinaryFormatFile(
 
 // Parse the Epitrend binary data file
 void FileReader::parseEpitrendBinaryDataFile(
+    const Config& config,
     EpitrendBinaryData& binary_data,
-    std::string GM,
+    const std::string& GM,
     int year,
     int month,
     int day,
@@ -173,11 +175,11 @@ void FileReader::parseEpitrendBinaryDataFile(
 
     // Parse the Epitrend binary format object
     EpitrendBinaryFormat binary_format = 
-        FileReader::parseEpitrendBinaryFormatFile(GM, year, month, day, hour, verbose);
+        FileReader::parseEpitrendBinaryFormatFile(config, GM, year, month, day, hour, verbose);
 
     // Construct the file path dynamically
     std::ostringstream oss;
-    oss << Config::getDataDir() << GM << " Molly/"
+    oss << config.getDataDir() << GM << " Molly/"
         << std::setfill('0') << year << "/"
         << std::setw(2) << month << "-" << MONTH_NAMES[month - 1] << "/"
         << std::setw(2) << day << "day-" << std::setw(2) << hour << "hr-binary.txt";
@@ -223,11 +225,12 @@ void FileReader::parseEpitrendBinaryDataFile(
 
 // Parse the server Epitrend binary format file
 EpitrendBinaryFormat FileReader::parseServerEpitrendBinaryFormatFile(
-    std::string GM,
-    int year, 
-    int month, 
-    int day, 
-    int hour, 
+    const Config& config,
+    const std::string& GM,
+    int year,
+    int month,
+    int day,
+    int hour,
     bool verbose
 ) {
     // Array for month names
@@ -243,7 +246,7 @@ EpitrendBinaryFormat FileReader::parseServerEpitrendBinaryFormatFile(
 
     // Construct the file path dynamically
     std::ostringstream oss;
-    oss << Config::getServerEpitrendDataDir() << GM << " Molly/"
+    oss << config.getServerEpitrendDataDir() << GM << " Molly/"
         << "EpiTrend/EpiTrendData/"
         << std::setfill('0') << year << "/"
         << std::setw(2) << month << "-" << MONTH_NAMES[month - 1] << "/"
@@ -368,8 +371,9 @@ EpitrendBinaryFormat FileReader::parseServerEpitrendBinaryFormatFile(
 
 // Parse the Epitrend binary data file
 void FileReader::parseServerEpitrendBinaryDataFile(
+    const Config& config,
     EpitrendBinaryData& binary_data,
-    std::string GM,
+    const std::string& GM,
     int year,
     int month,
     int day,
@@ -384,11 +388,11 @@ void FileReader::parseServerEpitrendBinaryDataFile(
 
     // Parse the Epitrend binary format object
     EpitrendBinaryFormat binary_format = 
-        FileReader::parseServerEpitrendBinaryFormatFile(GM, year, month, day, hour, verbose);
+        FileReader::parseServerEpitrendBinaryFormatFile(config, GM, year, month, day, hour, verbose);
 
     // Construct the file path dynamically
     std::ostringstream oss;
-    oss << Config::getServerEpitrendDataDir() << GM << " Molly/"
+    oss << config.getServerEpitrendDataDir() << GM << " Molly/"
         << "EpiTrend/EpiTrendData/"
         << std::setfill('0') << year << "/"
         << std::setw(2) << month << "-" << MONTH_NAMES[month - 1] << "/"
@@ -436,7 +440,7 @@ void FileReader::parseServerEpitrendBinaryDataFile(
 // Parse the RGA data file
 void FileReader::parseRGADataFile(
     RGAData& rga_data,
-    std::string GM,
+    const std::string& GM,
     int year,
     int month,
     int day,
@@ -615,8 +619,9 @@ void FileReader::parseRGADataFile(
 
 // Parse the RGA data file
 void FileReader::parseServerRGADataFile(
+    const Config& config,
     RGAData& rga_data,
-    std::string GM,
+    const std::string& GM,
     int year,
     int month,
     int day,
@@ -624,7 +629,7 @@ void FileReader::parseServerRGADataFile(
 ) {
     // Construct the directory path
     std::ostringstream dir_oss;
-    dir_oss << "/mnt/y/BNE-Characterisation/In-situ_MBE/Inficon RGA/MBE1/"
+    dir_oss << config.getServerRGADataDir()
             << std::setfill('0') << std::setw(4) << year << "-"
             << std::setw(3) << month << "-"
             << std::setw(2) << day;

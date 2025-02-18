@@ -2,17 +2,34 @@
 #define CONFIG_HPP
 
 #include <string>
+#include <unordered_map>
+#include <fstream>
+#include <sstream>
+#include <stdexcept>
+#include <iostream>
 
 class Config {
 public:
-    static const std::string DATA_DIR;
-	static const std::string OUTPUT_DIR;
-    static const std::string SERVER_EPITREND_DATA_DIR;
+    Config(const std::string& configFilePath);
 
-    static std::string getDataDir() {return DATA_DIR;}
-	static std::string getOutputDir() {return OUTPUT_DIR;}
-    static std::string getServerEpitrendDataDir() {return SERVER_EPITREND_DATA_DIR;}
+    std::string getDataDir() const;
+    std::string getOutputDir() const;
+    std::string getServerEpitrendDataDir() const;
+    std::string getServerRGADataDir() const;
+    std::string getOrg() const;
+    std::string getHost() const;
+    int getPort() const;
+    std::string getRgaBucket() const;
+    std::string getEpitrendBucket() const;
+    std::string getUser() const;
+    std::string getPassword() const;
+    std::string getPrecision() const;
+    std::string getToken() const;
 
+private:
+    void loadConfig(const std::string& configFilePath);
+
+    std::unordered_map<std::string, std::string> configMap;
 };
 
 #endif // CONFIG_HPP

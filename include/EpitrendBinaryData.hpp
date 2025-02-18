@@ -21,7 +21,7 @@ public:
 
     // Utility Methods
     void printAllTimeSeriesData();
-    void printFileAllTimeSeriesData(const std::string& filename);
+    void printFileAllTimeSeriesData(const Config& config, const std::string& filename);
     bool is_empty();
 
     // Clear all contents of time-series data

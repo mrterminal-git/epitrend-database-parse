@@ -67,8 +67,8 @@ void RGAData::printAllTimeSeriesData(){
     }
 }
 
-void RGAData::printFileAllTimeSeriesData(const std::string& filename) {
-    std::ofstream outFile(Config::getOutputDir() + filename);
+void RGAData::printFileAllTimeSeriesData(const Config& config, const std::string& filename) {
+    std::ofstream outFile(config.getOutputDir() + filename);
     for(auto element : allTimeSeriesData) {
         std::string bin_str = "";
         for(auto bin : element.first.bins){

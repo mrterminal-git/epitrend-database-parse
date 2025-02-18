@@ -42,6 +42,29 @@
 #include <curl/curl.h>
 #include <future>
 
+// Global config
+const Config config("config.txt");
+
+// Define the constants
+// const std::string& org = "au-mbe-eng";
+// const std::string& host = "127.0.0.1";
+// const int port = 8086;
+// const std::string& rga_bucket = "RGA";
+// const std::string& epitrend_bucket = "EPITREND";
+// const std::string& user = "";
+// const std::string& password = "";
+// const std::string& precision = "ms";
+// const std::string& token = "142ce8c4d871f807e6f8c3c264afcb5588d7c82ecaad305d8fde09f3f5dec642";
+const std::string& org = config.getOrg();
+const std::string& host = config.getHost();
+const int port = config.getPort();
+const std::string& rga_bucket = config.getRgaBucket();
+const std::string& epitrend_bucket = config.getEpitrendBucket();
+const std::string& user = config.getUser();
+const std::string& password = config.getPassword();
+const std::string& precision = config.getPrecision();
+const std::string& token = config.getToken();
+
 std::string time_now() {
     auto now = std::chrono::system_clock::now();
     std::time_t now_time = std::chrono::system_clock::to_time_t(now);
@@ -59,7 +82,7 @@ int day,
 int hour) {
     try {
         // Parse the Epitrend binary data file
-        FileReader::parseServerEpitrendBinaryDataFile(binary_data, GM, year,month,day,hour,false);
+        FileReader::parseServerEpitrendBinaryDataFile(config, binary_data, GM, year,month,day,hour,false);
         std::cout << time_now() << "Parsed " + GM + " Epitrend data file for: " << year << "," << month << "," << day << "," << hour << "\n";
 
     } catch ( std::exception& e) {
@@ -127,7 +150,7 @@ int day) {
 
 try {
     // Parse the RGA data file
-    FileReader::parseServerRGADataFile(rga_data, GM, year, month, day, false);
+    FileReader::parseServerRGADataFile(config, rga_data, GM, year, month, day, false);
     std::cout << time_now() << "Parsed " + GM + " RGA data file for: " << year << "," << month << "," << day << "\n";
 
 } catch (const std::exception& e) {
@@ -174,17 +197,6 @@ if (rga_data.getByteSize() > 0.1 * pow(10.0, 6.0) ) { // Limit INSERTS to ~10 mb
 
 return 1;
 }
-
-// Define the constants
-const std::string& org = "au-mbe-eng";
-const std::string& host = "127.0.0.1";
-const int port = 8086;
-const std::string& rga_bucket = "RGA";
-const std::string& epitrend_bucket = "EPITREND";
-const std::string& user = "";
-const std::string& password = "";
-const std::string& precision = "ms";
-const std::string& token = "142ce8c4d871f807e6f8c3c264afcb5588d7c82ecaad305d8fde09f3f5dec642";
 
 void processRealTimeRGAData(std::promise<void> exitSignal) {
     try{
@@ -237,7 +249,7 @@ void processRealTimeRGAData(std::promise<void> exitSignal) {
 
             // Parse GM1 RGA Data
             try {
-                FileReader::parseServerRGADataFile(current_RGA_data_GM1, "GM1", loop_year, loop_month, loop_day, false);
+                FileReader::parseServerRGADataFile(config, current_RGA_data_GM1, "GM1", loop_year, loop_month, loop_day, false);
                 std::cout << time_now() << "processRealTimeRGAData||" << "Parsed GM1 RGA data file for: " << loop_year << "," << loop_month << "," << loop_day << "\n";
             } catch (std::exception& e) {
                 std::cout << time_now() << "processRealTimeRGAData||" << "Warning during parsing GM1 RGA data file for " << loop_year << "," << loop_month << "," << loop_day << ": " << e.what() << "\n";
@@ -246,7 +258,7 @@ void processRealTimeRGAData(std::promise<void> exitSignal) {
 
             // Parse GM2 RGA Data
             try {
-                FileReader::parseServerRGADataFile(current_RGA_data_GM2, "GM2", loop_year, loop_month, loop_day, false);
+                FileReader::parseServerRGADataFile(config, current_RGA_data_GM2, "GM2", loop_year, loop_month, loop_day, false);
                 std::cout << time_now() << "processRealTimeRGAData||" << "Parsed GM2 RGA data file for: " << loop_year << "," << loop_month << "," << loop_day << "\n";
             } catch (std::exception& e) {
                 std::cout << time_now() << "processRealTimeRGAData||" << "Warning during parsing GM2 RGA data file for " << loop_year << "," << loop_month << "," << loop_day << ": " << e.what() << "\n";
@@ -255,7 +267,7 @@ void processRealTimeRGAData(std::promise<void> exitSignal) {
 
             // Parse Cluster RGA Data
             try {
-                FileReader::parseServerRGADataFile(current_RGA_data_Cluster, "Cluster", loop_year, loop_month, loop_day, false);
+                FileReader::parseServerRGADataFile(config, current_RGA_data_Cluster, "Cluster", loop_year, loop_month, loop_day, false);
                 std::cout << time_now() << "processRealTimeRGAData||" << "Parsed Cluster RGA data file for: " << loop_year << "," << loop_month << "," << loop_day << "\n";
             } catch (std::exception& e) {
                 std::cout << time_now() << "processRealTimeRGAData||" << "Warning during parsing Cluster RGA data file for " << loop_year << "," << loop_month << "," << loop_day << ": " << e.what() << "\n";
@@ -496,8 +508,8 @@ void processRealTimeEpitrendData(std::promise<void> exitSignal) {
 
         // Load the epitrend binary data into binary object
         try {
-            FileReader::parseServerEpitrendBinaryDataFile(current_binary_data_GM1, "GM1", year, month, day, hour, false);
-            FileReader::parseServerEpitrendBinaryDataFile(current_binary_data_GM2, "GM2", year, month, day, hour, false);
+            FileReader::parseServerEpitrendBinaryDataFile(config, current_binary_data_GM1, "GM1", year, month, day, hour, false);
+            FileReader::parseServerEpitrendBinaryDataFile(config, current_binary_data_GM2, "GM2", year, month, day, hour, false);
         } catch (std::exception& e) {
             std::cout << time_now() << "processRealTimeEpitrendData|| " << "No epitrend data file found for: " << year << "," << month << "," << day << "," << hour << "\n" << e.what() << "\n";
             std::this_thread::sleep_for(std::chrono::seconds(sleep_seconds));
@@ -592,6 +604,16 @@ void processRealTimeEpitrendData(std::promise<void> exitSignal) {
 }
 
 int main() {
+    // std::cout << "org: " << org << "\n";
+    // std::cout << "host: " << host << "\n";
+    // std::cout << "port: " << port << "\n";
+    // std::cout << "rga_bucket: " << rga_bucket << "\n";
+    // std::cout << "epitrend_bucket: " << epitrend_bucket << "\n";
+    // std::cout << "user: " << user << "\n";
+    // std::cout << "password: " << password << "\n";
+    // std::cout << "precision: " << precision << "\n";
+    // std::cout << "token: " << token << "\n";
+
     // Create promises and futures for each thread
     std::promise<void> promiseRealTimeRGA, promiseHistoricalRGA, promiseHistoricalEpitrend, promiseRealTimeEpitrend;
     std::future<void> futureRealTimeRGA = promiseRealTimeRGA.get_future();
