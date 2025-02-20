@@ -7,6 +7,7 @@
 #include "EpitrendBinaryFormat.hpp"
 #include "EpitrendBinaryData.hpp"
 #include "RGAData.hpp"
+#include "BMSData.cpp"
 
 class FileReader {
 public:
