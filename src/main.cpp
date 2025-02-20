@@ -41,8 +41,10 @@ int main() {
     checkError(ret, dbc, SQL_HANDLE_DBC);
 
     // Set connection attributes
-    SQLCHAR connectionString[] = "DRIVER={ODBC Driver 17 for SQL Server};SERVER=SC-SB-FAC-SQL1;DATABASE=modbus;UID=facilitysqluser;PWD=DWpziZ5F;";
-    ret = SQLDriverConnect(dbc, NULL, connectionString, SQL_NTS, NULL, 0, NULL, SQL_DRIVER_COMPLETE);
+    SQLCHAR connectionString[] = "DRIVER={ODBC Driver 18 for SQL Server};SERVER=SC-SB-FAC-SQL1;DATABASE=modbus;UID=facilitysqluser;PWD=DWpziZ5F;Encrypt=yes;TrustServerCertificate=yes;";
+    SQLCHAR outConnectionString[1024];
+    SQLSMALLINT outConnectionStringLen;
+    ret = SQLDriverConnect(dbc, NULL, connectionString, SQL_NTS, outConnectionString, sizeof(outConnectionString), &outConnectionStringLen, SQL_DRIVER_NOPROMPT);
     if (SQL_SUCCEEDED(ret)) {
         std::cout << "Connected to the Facility SQL database successfully!" << std::endl;
     } else {
@@ -54,22 +56,41 @@ int main() {
     ret = SQLAllocHandle(SQL_HANDLE_STMT, dbc, &stmt);
     checkError(ret, stmt, SQL_HANDLE_STMT);
 
-    // Execute a query
-    SQLCHAR query[] = "SELECT * FROM LSS;";
-    ret = SQLExecDirect(stmt, query, SQL_NTS);
+    // // Retrieve and print all table names
+    // ret = SQLTables(stmt, NULL, 0, NULL, 0, NULL, 0, (SQLCHAR*)"TABLE", SQL_NTS);
+    // if (SQL_SUCCEEDED(ret)) {
+    //     SQLCHAR tableCatalog[256];
+    //     SQLCHAR tableSchema[256];
+    //     SQLCHAR tableName[256];
+    //     SQLCHAR tableType[256];
+    //     while (SQLFetch(stmt) == SQL_SUCCESS) {
+    //         SQLGetData(stmt, 1, SQL_C_CHAR, tableCatalog, sizeof(tableCatalog), NULL);
+    //         SQLGetData(stmt, 2, SQL_C_CHAR, tableSchema, sizeof(tableSchema), NULL);
+    //         SQLGetData(stmt, 3, SQL_C_CHAR, tableName, sizeof(tableName), NULL);
+    //         SQLGetData(stmt, 4, SQL_C_CHAR, tableType, sizeof(tableType), NULL);
+    //         std::cout << "Catalog: " << tableCatalog << ", Schema: " << tableSchema << ", Table: " << tableName << ", Type: " << tableType << std::endl;
+    //     }
+    // } else {
+    //     checkError(ret, stmt, SQL_HANDLE_STMT);
+    // }
+
+    // Retrieve and print the schema of the "LSS" table
+    ret = SQLColumns(stmt, NULL, 0, NULL, 0, (SQLCHAR*)"LSS", SQL_NTS, NULL, 0);
     if (SQL_SUCCEEDED(ret)) {
         SQLCHAR columnName[256];
-        SQLCHAR columnValue[256];
-        SQLSMALLINT columns;
-        SQLNumResultCols(stmt, &columns);
-
+        SQLCHAR columnType[256];
+        SQLINTEGER columnSize;
+        SQLSMALLINT decimalDigits;
+        SQLSMALLINT nullable;
         while (SQLFetch(stmt) == SQL_SUCCESS) {
-            for (SQLUSMALLINT i = 1; i <= columns; i++) {
-                SQLGetData(stmt, i, SQL_C_CHAR, columnValue, sizeof(columnValue), NULL);
-                SQLDescribeCol(stmt, i, columnName, sizeof(columnName), NULL, NULL, NULL, NULL, NULL);
-                std::cout << columnName << ": " << columnValue << std::endl;
-            }
-            std::cout << std::endl;
+            SQLGetData(stmt, 4, SQL_C_CHAR, columnName, sizeof(columnName), NULL);
+            SQLGetData(stmt, 6, SQL_C_CHAR, columnType, sizeof(columnType), NULL);
+            SQLGetData(stmt, 7, SQL_C_LONG, &columnSize, 0, NULL);
+            SQLGetData(stmt, 9, SQL_C_SHORT, &decimalDigits, 0, NULL);
+            SQLGetData(stmt, 11, SQL_C_SHORT, &nullable, 0, NULL);
+            std::cout << "Column Name: " << columnName << ", Type: " << columnType
+                      << ", Size: " << columnSize << ", Decimal Digits: " << decimalDigits
+                      << ", Nullable: " << (nullable == SQL_NULLABLE ? "YES" : "NO") << std::endl;
         }
     } else {
         checkError(ret, stmt, SQL_HANDLE_STMT);
