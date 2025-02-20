@@ -444,7 +444,7 @@ void processHistoricalEpitrendData(std::promise<void> exitSignal) {
         influx_db.checkConnection(true);
 
         EpitrendBinaryData binary_data_GM1, binary_data_GM2;
-        for(int year = 2024; year > 2019; --year){
+        for(int year = 2025; year > 2019; --year){
         for(int month = 12; month > 0; --month) {
         for(int day = 31; day > 1; --day) {
         for(int hour = 24; hour > -1; --hour) {
