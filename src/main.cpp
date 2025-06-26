@@ -1,13 +1,19 @@
-/*
- * main.cpp
+/**
+ * @file main.cpp
+ * @brief Entry point for the EPITREND GUI application.
  *
- * This program is designed to read binary data files from the Epitrend system,
- * process the data, and insert it into an InfluxDB database. The program iterates
- * over a specified range of years, months, days, and hours, attempting to read
- * and parse binary data files for each time period. If a file is found and successfully
- * parsed, the data is then copied into the InfluxDB database.
+ * This program is designed to read binary data files from the Epitrend and RGA systems,
+ * process the data, and insert it into an InfluxDB database. It supports both real-time
+ * and historical data processing, leveraging multithreading to handle multiple tasks
+ * concurrently.
  *
- * The program uses several helper classes and libraries:
+ * The program performs the following tasks:
+ * - Real-time processing of RGA and Epitrend data.
+ * - Historical processing of RGA and Epitrend data.
+ * - Data insertion into InfluxDB with retry mechanisms for robustness.
+ * - Logging of operations and database statistics.
+ *
+ * Dependencies:
  * - Common.hpp: Contains common utility functions and definitions.
  * - FileReader.hpp: Provides functions to read and parse binary data files.
  * - Config.hpp: Manages configuration settings for the program.
@@ -15,19 +21,8 @@
  * - EpitrendBinaryData.hpp: Represents the parsed binary data.
  * - AzureDatabase.hpp: Provides functions to interact with an Azure SQL database.
  * - InfluxDatabase.hpp: Provides functions to interact with an InfluxDB database.
- * - influxdb.hpp: Contains additional InfluxDB-related functions and definitions.
+ * - RGAData.hpp: Represents the parsed RGA data.
  * - curl/curl.h: Used for making HTTP requests to the InfluxDB server.
- *
- * The program performs the following steps:
- * 1. Define constants for the InfluxDB connection (organization, host, port, bucket, etc.).
- * 2. Create an InfluxDB object and check the health of the connection.
- * 3. Iterate over the specified range of years, months, days, and hours.
- * 4. For each time period, attempt to read and parse the corresponding binary data file.
- * 5. If the file is successfully parsed, copy the data into the InfluxDB database.
- * 6. Log the times when data is successfully inserted into the database.
- *
- * Note: The program assumes that the binary data files are named and organized
- * according to a specific convention based on the year, month, day, and hour.
  */
 
 #include "Common.hpp"
@@ -46,15 +41,6 @@
 const Config config("config.txt");
 
 // Define the constants
-// const std::string& org = "au-mbe-eng";
-// const std::string& host = "127.0.0.1";
-// const int port = 8086;
-// const std::string& rga_bucket = "RGA";
-// const std::string& epitrend_bucket = "EPITREND";
-// const std::string& user = "";
-// const std::string& password = "";
-// const std::string& precision = "ms";
-// const std::string& token = "142ce8c4d871f807e6f8c3c264afcb5588d7c82ecaad305d8fde09f3f5dec642";
 const std::string& org = config.getOrg();
 const std::string& host = config.getHost();
 const int port = config.getPort();
@@ -65,6 +51,10 @@ const std::string& password = config.getPassword();
 const std::string& precision = config.getPrecision();
 const std::string& token = config.getToken();
 
+/**
+ * @brief Retrieves the current timestamp as a formatted string.
+ * @return A string representing the current time in the format "YYYY-MM-DD HH:MM:SS||".
+ */
 std::string time_now() {
     auto now = std::chrono::system_clock::now();
     std::time_t now_time = std::chrono::system_clock::to_time_t(now);
@@ -73,6 +63,17 @@ std::string time_now() {
     return time_str + "|| ";
 }
 
+/**
+ * @brief Copies Epitrend binary data to the InfluxDB database.
+ * @param influx_db The InfluxDB object for database interaction.
+ * @param binary_data The EpitrendBinaryData object containing parsed data.
+ * @param GM The metadata identifier (e.g., "GM1").
+ * @param year The year of the data file.
+ * @param month The month of the data file.
+ * @param day The day of the data file.
+ * @param hour The hour of the data file.
+ * @return 1 if successful, 0 if no data file is found, -1 if an error occurs.
+ */
 int copyEpitrendDataToInflux(InfluxDatabase influx_db, 
 EpitrendBinaryData& binary_data, 
 std::string GM, 
@@ -141,6 +142,16 @@ int hour) {
     return 1;
 }
 
+/**
+ * @brief Copies RGA data to the InfluxDB database.
+ * @param influx_db The InfluxDB object for database interaction.
+ * @param rga_data The RGAData object containing parsed data.
+ * @param GM The metadata identifier (e.g., "GM1").
+ * @param year The year of the data file.
+ * @param month The month of the data file.
+ * @param day The day of the data file.
+ * @return 1 if successful, 0 if no data file is found, -1 if an error occurs.
+ */
 int copyRGADataToInflux(InfluxDatabase influx_db,
 RGAData& rga_data,
 std::string GM,
@@ -198,6 +209,12 @@ if (rga_data.getByteSize() > 0.1 * pow(10.0, 6.0) ) { // Limit INSERTS to ~10 mb
 return 1;
 }
 
+/**
+ * @brief Processes real-time RGA data and inserts it into the InfluxDB database.
+ * @param exitSignal A promise object to signal thread completion.
+ * @details Continuously monitors and updates the database with real-time RGA data.
+ * Implements retry mechanisms for database operations.
+ */
 void processRealTimeRGAData(std::promise<void> exitSignal) {
     try{
         const int& parse_error_sleep_seconds = 1;
@@ -392,6 +409,11 @@ void processRealTimeRGAData(std::promise<void> exitSignal) {
     }
 }
 
+/**
+ * @brief Processes historical RGA data and inserts it into the InfluxDB database.
+ * @param exitSignal A promise object to signal thread completion.
+ * @details Iterates over historical RGA data files and inserts them into the database.
+ */
 void processHistoricalRGAData(std::promise<void> exitSignal) {  
     try{  
         // Create influx object
@@ -435,6 +457,11 @@ void processHistoricalRGAData(std::promise<void> exitSignal) {
     }
 }
 
+/**
+ * @brief Processes historical Epitrend data and inserts it into the InfluxDB database.
+ * @param exitSignal A promise object to signal thread completion.
+ * @details Iterates over historical Epitrend data files and inserts them into the database.
+ */
 void processHistoricalEpitrendData(std::promise<void> exitSignal) {
     try {
         // Create influx object
@@ -476,6 +503,12 @@ void processHistoricalEpitrendData(std::promise<void> exitSignal) {
 
 }
 
+/**
+ * @brief Processes real-time Epitrend data and inserts it into the InfluxDB database.
+ * @param exitSignal A promise object to signal thread completion.
+ * @details Continuously monitors and updates the database with real-time Epitrend data.
+ * Implements retry mechanisms for database operations.
+ */
 void processRealTimeEpitrendData(std::promise<void> exitSignal) {
     const int& sleep_seconds = 10;
     const int& max_reconnect_attempts = 100;
@@ -603,6 +636,12 @@ void processRealTimeEpitrendData(std::promise<void> exitSignal) {
     }
 }
 
+/**
+ * @brief Entry point for the EPITREND GUI application.
+ * @return 0 on successful execution, -1 on error.
+ * @details Initializes threads for real-time and historical data processing for both
+ * Epitrend and RGA systems. Monitors thread execution and handles exceptions.
+ */
 int main() {
     std::cout << "org: " << org << "\n";
     std::cout << "host: " << host << "\n";
