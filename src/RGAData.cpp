@@ -29,10 +29,49 @@ int RGAData::getByteSize() const {
     return byteSize;
 }
 
+/**
+ * @brief Retrieves all time-series data stored in the RGAData object.
+ *
+ * This method returns a map containing all time-series data organized by AMU bins.
+ * Each AMU bin is associated with a nested map of timestamps and their corresponding values.
+ *
+ * @return A constant reference to the map containing all time-series data.
+ *         - The outer map's key is an `AMUBins` object representing the bins.
+ *         - The outer map's value is another map, where:
+ *             - The key is a `double` representing the timestamp.
+ *             - The value is a `double` representing the data value at that timestamp.
+ *
+ * Example Usage:
+ * @code
+ * const auto& data = rgaData.getAllTimeSeriesData();
+ * for (const auto& [bins, timeSeries] : data) {
+ *     bins.print(); // Print the bins
+ *     for (const auto& [time, value] : timeSeries) {
+ *         std::cout << "Time: " << time << ", Value: " << value << std::endl;
+ *     }
+ * }
+ * @endcode
+ */
 const std::unordered_map<RGAData::AMUBins, std::unordered_map<double, double, std::hash<double>, std::equal_to<double>, std::allocator<std::pair<const double, double>>>, RGAData::AMUBinsHash, std::equal_to<RGAData::AMUBins>, std::allocator<std::pair<const RGAData::AMUBins, std::unordered_map<double, double, std::hash<double>, std::equal_to<double>, std::allocator<std::pair<const double, double>>>>>>& RGAData::getAllTimeSeriesData() const {
     return allTimeSeriesData;
 }
 
+/**
+ * @brief Retrieves all AMU bins stored in the RGAData object.
+ *
+ * This method returns a vector containing all `AMUBins` objects currently stored in the RGAData object.
+ * Each `AMUBins` object represents a set of bins associated with time-series data.
+ *
+ * @return A vector of `AMUBins` objects.
+ *
+ * Example Usage:
+ * @code
+ * const auto bins = rgaData.getBins();
+ * for (const auto& bin : bins) {
+ *     bin.print(); // Print the bins
+ * }
+ * @endcode
+ */
 const std::vector<RGAData::AMUBins> RGAData::getBins() {
     std::vector<RGAData::AMUBins> bins;
     for(auto element : allTimeSeriesData){
