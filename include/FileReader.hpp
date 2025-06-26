@@ -8,12 +8,35 @@
 #include "EpitrendBinaryData.hpp"
 #include "RGAData.hpp"
 
+/**
+ * @class FileReader
+ * @brief A utility class for parsing time-series data files from Epitrend and RGA systems.
+ *
+ * The `FileReader` class provides static methods to parse binary and text files
+ * containing time-series data. It supports parsing files from local directories
+ * and server directories, extracting metadata, and loading data into structured objects.
+ */
 class FileReader {
 public:
-    // Public static method if you want to access it from other classes
+    /**
+     * @brief Trims whitespace from the beginning and end of a string.
+     * @param str The input string to trim.
+     * @return A trimmed string with leading and trailing whitespace removed.
+     */
     static std::string trim(const std::string& str);
 
-    // Parse the Epitrend binary format file
+    /**
+     * @brief Parses an Epitrend binary format file and extracts metadata.
+     * @param config The configuration object containing file paths.
+     * @param GM The general metadata identifier (e.g., "Cluster").
+     * @param year The year of the data file.
+     * @param month The month of the data file (1-12).
+     * @param day The day of the data file.
+     * @param hour The hour of the data file.
+     * @param verbose If true, prints detailed parsing information to the console.
+     * @return An `EpitrendBinaryFormat` object containing parsed metadata.
+     * @throws std::runtime_error If the file cannot be opened or parsed.
+     */
     static EpitrendBinaryFormat parseEpitrendBinaryFormatFile(
         const Config& config,
         const std::string& GM,
@@ -24,7 +47,18 @@ public:
         bool verbose
     );
    
-    // Parse the Epitrend binary data file
+    /**
+     * @brief Parses an Epitrend binary data file and loads time-series data.
+     * @param config The configuration object containing file paths.
+     * @param binary_data The `EpitrendBinaryData` object to store parsed data.
+     * @param GM The general metadata identifier (e.g., "Cluster").
+     * @param year The year of the data file.
+     * @param month The month of the data file (1-12).
+     * @param day The day of the data file.
+     * @param hour The hour of the data file.
+     * @param verbose If true, prints detailed parsing information to the console.
+     * @throws std::runtime_error If the file cannot be opened or parsed.
+     */
     static void parseEpitrendBinaryDataFile(
         const Config& config,
         EpitrendBinaryData& binary_data,
@@ -36,7 +70,18 @@ public:
         bool verbose
     );
 
-    // Parse the server Epitrend binary format file
+    /**
+     * @brief Parses an Epitrend binary format file from the server and extracts metadata.
+     * @param config The configuration object containing server file paths.
+     * @param GM The general metadata identifier (e.g., "Cluster").
+     * @param year The year of the data file.
+     * @param month The month of the data file (1-12).
+     * @param day The day of the data file.
+     * @param hour The hour of the data file.
+     * @param verbose If true, prints detailed parsing information to the console.
+     * @return An `EpitrendBinaryFormat` object containing parsed metadata.
+     * @throws std::runtime_error If the file cannot be opened or parsed.
+     */
     static EpitrendBinaryFormat parseServerEpitrendBinaryFormatFile(
         const Config& config,
         const std::string& GM,
@@ -47,7 +92,18 @@ public:
         bool verbose
     );
    
-    // Parse the server Epitrend binary data file
+    /**
+     * @brief Parses an Epitrend binary data file from the server and loads time-series data.
+     * @param config The configuration object containing server file paths.
+     * @param binary_data The `EpitrendBinaryData` object to store parsed data.
+     * @param GM The general metadata identifier (e.g., "Cluster").
+     * @param year The year of the data file.
+     * @param month The month of the data file (1-12).
+     * @param day The day of the data file.
+     * @param hour The hour of the data file.
+     * @param verbose If true, prints detailed parsing information to the console.
+     * @throws std::runtime_error If the file cannot be opened or parsed.
+     */
     static void parseServerEpitrendBinaryDataFile(
         const Config& config,
         EpitrendBinaryData& binary_data,
@@ -59,7 +115,16 @@ public:
         bool verbose
     );
 
-    // Parse the RGA data file
+    /**
+     * @brief Parses an RGA data file and loads time-series data.
+     * @param rga_data The `RGAData` object to store parsed data.
+     * @param GM The general metadata identifier (e.g., "Cluster").
+     * @param year The year of the data file.
+     * @param month The month of the data file (1-12).
+     * @param day The day of the data file.
+     * @param verbose If true, prints detailed parsing information to the console.
+     * @throws std::runtime_error If the file cannot be opened or parsed.
+     */
     static void parseRGADataFile(
         RGAData& rga_data,
         const std::string& GM,
@@ -69,7 +134,17 @@ public:
         bool verbose
     );
 
-    // Parse the server RGA data file
+    /**
+     * @brief Parses an RGA data file from the server and loads time-series data.
+     * @param config The configuration object containing server file paths.
+     * @param rga_data The `RGAData` object to store parsed data.
+     * @param GM The general metadata identifier (e.g., "Cluster").
+     * @param year The year of the data file.
+     * @param month The month of the data file (1-12).
+     * @param day The day of the data file.
+     * @param verbose If true, prints detailed parsing information to the console.
+     * @throws std::runtime_error If the file cannot be opened or parsed.
+     */
     static void parseServerRGADataFile(
         const Config& config,
         RGAData& rga_data,
@@ -81,10 +156,19 @@ public:
     );
 
 private:
-	// Internal use of trimming
+	/**
+     * @brief Trims whitespace from the beginning and end of a string (internal use).
+     * @param str The input string to trim.
+     * @return A trimmed string with leading and trailing whitespace removed.
+     */
 	static std::string trimInternal(const std::string& str);
 
-    // Internal using of splitting by delimiter
+    /**
+     * @brief Splits a string by a delimiter (internal use).
+     * @param s The input string to split.
+     * @param delimiter The delimiter string.
+     * @return A vector of tokens extracted from the input string.
+     */
     static std::vector<std::string> split(std::string s, const std::string& delimiter) {
         std::vector<std::string> tokens;
         size_t pos = 0;
