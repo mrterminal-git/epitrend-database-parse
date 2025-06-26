@@ -1,10 +1,19 @@
 #include "Config.hpp"
 
+/**
+ * @brief Constructs a Config object and loads the configuration file.
+ * @param configFilePath The path to the configuration file.
+ * @throws std::runtime_error If the configuration file cannot be opened.
+ */
 Config::Config(const std::string& configFilePath) {
     loadConfig(configFilePath);
 }
 
-// Helper function to convert non-visible characters to their visible representations
+/**
+ * @brief Helper function to convert non-visible characters to their visible representations.
+ * @param str The input string containing non-visible characters.
+ * @return A string with non-visible characters replaced by their visible representations.
+ */
 std::string makeVisible(const std::string& str) {
     std::string visibleStr;
     for (char ch : str) {
@@ -29,7 +38,11 @@ std::string makeVisible(const std::string& str) {
     return visibleStr;
 }
 
-// Helper function to remove non-visible characters
+/**
+ * @brief Helper function to remove non-visible characters from a string.
+ * @param str The input string containing non-visible characters.
+ * @return A string with non-visible characters removed.
+ */
 std::string removeNonVisible(const std::string& str) {
     std::string visibleStr;
     for (char ch : str) {
@@ -40,6 +53,11 @@ std::string removeNonVisible(const std::string& str) {
     return visibleStr;
 }
 
+/**
+ * @brief Loads the configuration file and populates the configuration map.
+ * @param configFilePath The path to the configuration file.
+ * @throws std::runtime_error If the configuration file cannot be opened.
+ */
 void Config::loadConfig(const std::string& configFilePath) {
     std::ifstream configFile(configFilePath);
     if (!configFile.is_open()) {
