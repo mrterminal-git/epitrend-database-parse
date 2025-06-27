@@ -52,6 +52,39 @@ const std::string& precision = config.getPrecision();
 const std::string& token = config.getToken();
 
 /**
+ * @brief Retrieves the current year as an integer.
+ *
+ * This function uses the `<chrono>` library to get the current system time and extracts
+ * the year from it. The year is calculated based on the `tm_year` field of the `std::tm`
+ * structure, which represents the number of years since 1900.
+ *
+ * @return An integer representing the current year (e.g., 2025).
+ *
+ * Example Usage:
+ * @code
+ * int currentYear = getCurrentYear();
+ * std::cout << "Current Year: " << currentYear << std::endl;
+ * @endcode
+ *
+ * Dependencies:
+ * - `<chrono>`: Used to retrieve the current system time.
+ * - `<ctime>`: Used to convert the system time to a `std::tm` structure.
+ *
+ * @throws None
+ */
+int getCurrentYear() {
+    // Get the current time
+    auto now = std::chrono::system_clock::now();
+    std::time_t now_time = std::chrono::system_clock::to_time_t(now);
+
+    // Convert to local time
+    std::tm* now_tm = std::localtime(&now_time);
+
+    // Extract the year and return it
+    return now_tm->tm_year + 1900; // tm_year is years since 1900
+}
+
+/**
  * @brief Retrieves the current timestamp as a formatted string.
  * @return A string representing the current time in the format "YYYY-MM-DD HH:MM:SS||".
  */
@@ -428,7 +461,8 @@ void processHistoricalRGAData(std::promise<void> exitSignal) {
         GM2_rga_data(integration_count),
         Cluster_rga_data(integration_count);
 
-        for(int year = 2025; year > 2020; --year){
+        int current_year = getCurrentYear();
+        for(int year = current_year; year > 2020; --year){
         for(int month = 12; month > 0; --month) {
         for(int day = 31; day > 0; --day) {
             const auto copy_result_GM1 = copyRGADataToInflux(influx_db, GM1_rga_data, "GM1", year, month, day);
@@ -470,8 +504,9 @@ void processHistoricalEpitrendData(std::promise<void> exitSignal) {
         // Check the health of the connection
         influx_db.checkConnection(true);
 
+        int current_year = getCurrentYear();
         EpitrendBinaryData binary_data_GM1, binary_data_GM2;
-        for(int year = 2025; year > 2019; --year){
+        for(int year = current_year; year > 2019; --year){
         for(int month = 12; month > 0; --month) {
         for(int day = 31; day > 1; --day) {
         for(int hour = 24; hour > -1; --hour) {
