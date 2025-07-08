@@ -746,6 +746,8 @@ void FileReader::parseServerRGADataFile(
         double unix_time;
         try {
             unix_time = std::stod(current_row.at(1));
+            double offset_seconds = 10.0 * 3600.0; // 10 hours offset
+            unix_time += offset_seconds; // Adjust the unix time by the offset
         } catch (const std::exception& e) {
             if (verbose) std::cerr << "Error parseServerRGADataFile function call: error parsing unix time: " << e.what() << "\n";
             throw std::runtime_error("Error parseServerRGADataFile function call: Error parsing unix time");
