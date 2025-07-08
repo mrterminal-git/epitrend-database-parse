@@ -263,11 +263,14 @@ void processRealTimeRGAData(std::promise<void> exitSignal) {
 
         // Update the database real-time - every second
         RGAData previous_RGA_data_GM1(integration_count), previous_RGA_data_GM2(integration_count),
-        previous_RGA_data_Cluster(integration_count),
+        previous_RGA_data_Cluster(integration_count), previous_RGA_data_PM1(integration_count),
+        previous_RGA_data_PM2(integration_count),
         current_RGA_data_GM1(integration_count), current_RGA_data_GM2(integration_count),
-        current_RGA_data_Cluster(integration_count),
+        current_RGA_data_Cluster(integration_count), current_RGA_data_PM1(integration_count),
+        current_RGA_data_PM2(integration_count),
         difference_RGA_data_GM1, difference_RGA_data_GM2,
-        difference_RGA_data_Cluster;
+        difference_RGA_data_Cluster, difference_RGA_data_PM1,
+        difference_RGA_data_PM2;
 
         while (true) {
         std::cout << time_now() << "processRealTimeRGAData||" << "Updating database in real-time...\n";
@@ -323,12 +326,32 @@ void processRealTimeRGAData(std::promise<void> exitSignal) {
                 std::cout << time_now() << "processRealTimeRGAData||" << "Warning during parsing Cluster RGA data file for " << loop_year << "," << loop_month << "," << loop_day << ": " << e.what() << "\n";
                 std::this_thread::sleep_for(std::chrono::seconds(parse_error_sleep_seconds));
             }
+
+            // Parse PM1 RGA Data
+            try {
+                FileReader::parseServerRGADataFile(config, current_RGA_data_PM1, "PM1", loop_year, loop_month, loop_day, false);
+                std::cout << time_now() << "processRealTimeRGAData||" << "Parsed PM1 RGA data file for: " << loop_year << "," << loop_month << "," << loop_day << "\n";
+            } catch (std::exception& e) {
+                std::cout << time_now() << "processRealTimeRGAData||" << "Warning during parsing PM1 RGA data file for " << loop_year << "," << loop_month << "," << loop_day << ": " << e.what() << "\n";
+                std::this_thread::sleep_for(std::chrono::seconds(parse_error_sleep_seconds));
+            }
+
+            // Parse PM2 RGA Data
+            try {
+                FileReader::parseServerRGADataFile(config, current_RGA_data_PM2, "PM2", loop_year, loop_month, loop_day, false);
+                std::cout << time_now() << "processRealTimeRGAData||" << "Parsed PM2 RGA data file for: " << loop_year << "," << loop_month << "," << loop_day << "\n";
+            } catch (std::exception& e) {
+                std::cout << time_now() << "processRealTimeRGAData||" << "Warning during parsing PM2 RGA data file for " << loop_year << "," << loop_month << "," << loop_day << ": " << e.what() << "\n";
+                std::this_thread::sleep_for(std::chrono::seconds(parse_error_sleep_seconds));
+            }
         }
 
         // Find the difference between the previous and current data
         difference_RGA_data_GM1 = current_RGA_data_GM1.difference(previous_RGA_data_GM1);
         difference_RGA_data_GM2 = current_RGA_data_GM2.difference(previous_RGA_data_GM2);
         difference_RGA_data_Cluster = current_RGA_data_Cluster.difference(previous_RGA_data_Cluster);
+        difference_RGA_data_PM1 = current_RGA_data_GM2.difference(previous_RGA_data_PM1);
+        difference_RGA_data_PM2 = current_RGA_data_GM2.difference(previous_RGA_data_PM2);
 
         // Copy the difference data to the influxDB
         if(!difference_RGA_data_GM1.is_empty()) {
@@ -404,15 +427,69 @@ void processRealTimeRGAData(std::promise<void> exitSignal) {
         } else {
             std::cout << time_now() << "processRealTimeRGAData||" << "No difference data found for Cluster\n";
         }
+        if(!difference_RGA_data_PM1.is_empty()) {
+            // Try to copy the data to influxDB with max_reconnect_attempts retries
+            for(int i = 0; i < max_reconnect_attempts; ++i) {
+                try {    
+                    std::cout << time_now() << "processRealTimeRGAData||" << "Found difference data for PM1... copying the following data into influxDB: \n";            
+                    influx_db.copyRGADataToBucket(difference_RGA_data_PM1, false);
+                    
+                    break;  
+                
+                } catch (std::exception& e) {
+                    std::cout << time_now() << "processRealTimeRGAData||" << "Error in copying PM1 RGA data to influxDB: " << e.what() << "\n Retrying...\n";
+                    if (i == max_reconnect_attempts) {
+                        std::cout << time_now() << "processRealTimeRGAData||" << "Failed to copy PM1 RGA data to influxDB after " << max_reconnect_attempts << " tries\n";
+                        exit(-1);
+                    }
+                                
+                    // Pause
+                    std::this_thread::sleep_for(std::chrono::seconds(sleep_seconds));
+
+                }
+            }
+        }
+        else {
+            std::cout << time_now() << "processRealTimeRGAData||" << "No difference data found for PM1\n";
+        }
+        if(!difference_RGA_data_PM2.is_empty()) {
+            // Try to copy the data to influxDB with max_reconnect_attempts retries
+            for(int i = 0; i < max_reconnect_attempts; ++i) {
+                try {    
+                    std::cout << time_now() << "processRealTimeRGAData||" << "Found difference data for PM2... copying the following data into influxDB: \n";            
+                    influx_db.copyRGADataToBucket(difference_RGA_data_PM2, false);
+                    
+                    break;  
+                
+                } catch (std::exception& e) {
+                    std::cout << time_now() << "processRealTimeRGAData||" << "Error in copying PM2 RGA data to influxDB: " << e.what() << "\n Retrying...\n";
+                    if (i == max_reconnect_attempts) {
+                        std::cout << time_now() << "processRealTimeRGAData||" << "Failed to copy PM2 RGA data to influxDB after " << max_reconnect_attempts << " tries\n";
+                        exit(-1);
+                    }
+                                
+                    // Pause
+                    std::this_thread::sleep_for(std::chrono::seconds(sleep_seconds));
+
+                }
+            }
+        }
+        else {
+            std::cout << time_now() << "processRealTimeRGAData||" << "No difference data found for PM2\n";
+        }
 
         // Reset RGA data
         previous_RGA_data_GM1 = current_RGA_data_GM1;
         previous_RGA_data_GM2 = current_RGA_data_GM2;
         previous_RGA_data_Cluster = current_RGA_data_Cluster;
+        previous_RGA_data_PM1 = current_RGA_data_PM1;
+        previous_RGA_data_PM2 = current_RGA_data_PM2;
 
         current_RGA_data_GM1.clearData();
         current_RGA_data_GM2.clearData();
         current_RGA_data_Cluster.clearData();
+        current_RGA_data_PM1.clearData();
+        current_RGA_data_PM2.clearData();
 
         // Flush all data from RGA data object if hour has changed
         now = std::chrono::system_clock::now();
@@ -422,6 +499,8 @@ void processRealTimeRGAData(std::promise<void> exitSignal) {
             previous_RGA_data_GM1.clearData();
             previous_RGA_data_GM2.clearData();
             previous_RGA_data_Cluster.clearData();
+            previous_RGA_data_PM1.clearData();
+            previous_RGA_data_PM2.clearData();
         }
 
         std::cout << time_now() << "processRealTimeRGAData||" << "Sleeping for " << sleep_seconds << " seconds...\n";
@@ -459,7 +538,9 @@ void processHistoricalRGAData(std::promise<void> exitSignal) {
         const int& integration_count = 4;
         RGAData GM1_rga_data(integration_count), 
         GM2_rga_data(integration_count),
-        Cluster_rga_data(integration_count);
+        Cluster_rga_data(integration_count),
+        PM1_rga_data(integration_count), 
+        PM2_rga_data(integration_count);
 
         int current_year = getCurrentYear();
         for(int year = current_year; year > 2020; --year){
@@ -468,7 +549,9 @@ void processHistoricalRGAData(std::promise<void> exitSignal) {
             const auto copy_result_GM1 = copyRGADataToInflux(influx_db, GM1_rga_data, "GM1", year, month, day);
             const auto copy_result_GM2 = copyRGADataToInflux(influx_db, GM2_rga_data, "GM2", year, month, day);
             const auto copy_result_Cluster = copyRGADataToInflux(influx_db, Cluster_rga_data, "Cluster", year, month, day);
-            if (copy_result_GM1 < 0 || copy_result_GM2 < 0 || copy_result_Cluster < 0)
+            const auto copy_result_PM1 = copyRGADataToInflux(influx_db, PM1_rga_data, "PM1", year, month, day);
+            const auto copy_result_PM2 = copyRGADataToInflux(influx_db, PM2_rga_data, "PM2", year, month, day);
+            if (copy_result_GM1 < 0 || copy_result_GM2 < 0 || copy_result_Cluster < 0 || copy_result_PM1 < 0 || copy_result_PM2 < 0)
             {
                 std::cout << time_now() << "processHistoricalRGAData|| " << "Error in copying data to influxDB\n";
                 exit(-1);
